@@ -8,4 +8,5 @@ gensim
 pyvi
 pickle
 os
+sklearn
 re
