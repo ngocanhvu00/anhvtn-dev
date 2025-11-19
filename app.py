@@ -87,6 +87,21 @@ def build_training_helpers(path=TRAINING_DATA):
         # format: seg_price_map[segment] = {'p10':..., 'p90':...}
 
         # =============== 3) RESIDUAL STATS BY SEGMENT ==================
+
+        # Load model
+        with open(MODEL_PATH, 'rb') as f:
+            model = pickle.load(f)
+
+        # Define cols
+        cat_cols = ['segment','bike_type','origin','engine_capacity']
+        num_cols = ['age','mileage_km','min_price','max_price','brand_meanprice']
+
+        # Build matrix
+        X = df_train[cat_cols + num_cols]
+        # y = df['log_price']
+
+        # Predict price
+        df_train['price_hat'] = np.expm1(model.predict(X))
         df_train['resid'] = df_train['price'] - df_train['price_hat']  # price_hat từ preprocess
 
         seg_resid_stats = (
