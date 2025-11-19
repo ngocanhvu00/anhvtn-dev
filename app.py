@@ -404,4 +404,4 @@ else:
 
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("Hướng dẫn: đặt file 'motobike_price_prediction_model.pkl' và (tùy chọn) 'data_motobikes.xlsx' trong cùng thư mục với app.\nSử dụng Python >=3.8, cài: streamlit, scikit-learn, pandas, numpy.")
+st.sidebar.markdown("App demo")
