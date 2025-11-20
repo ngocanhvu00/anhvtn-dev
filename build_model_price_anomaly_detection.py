@@ -31,8 +31,7 @@ def detect_outliers(data_input, model_path, input_is_df=False, helpers=None):
         # Final scoring
         "score_resid": 0.4,
         "score_minmax": 0.2,
-        "score_p10p90": 0.1,
-        "score_br": 0.1,
+        "score_p10p90": 0.2,
         "score_unsup": 0.2,
         "score_threshold": 50
     }
@@ -209,12 +208,11 @@ def detect_outliers(data_input, model_path, input_is_df=False, helpers=None):
     df['final_score'] = 100 * (
         TH["score_resid"]*df['flag_resid'] +
         TH["score_minmax"]*df['flag_minmax'] +
-        TH["score_br"] *df['flag_br'] +
         TH["score_p10p90"]*df['flag_p10p90'] +
         TH["score_unsup"] *df['flag_unsup']
     )
 
-    df['is_outlier'] = (df['final_score'] > TH["score_threshold"]).astype(int)
+    df['is_outlier'] = ((df['final_score'] > TH["score_threshold"]) | (df['flag_br'] == 1)).astype(int)
 
     # Xuất kết quả
     anomaly = df[df['is_outlier'] == 1].copy()
