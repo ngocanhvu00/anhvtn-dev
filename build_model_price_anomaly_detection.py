@@ -205,7 +205,7 @@ def detect_outliers(data_input, model_path, input_is_df=False, helpers=None):
         df['flag_unsup'] = (df[['flag_if','flag_lof','flag_kmeans']].sum(axis=1) > 1).astype(int)
 
     # Final scoring
-    df['final_score_model_based'] = 100 * (
+    df['score_model_based'] = 100 * (
         TH["score_resid"]*df['flag_resid'] +
         TH["score_minmax"]*df['flag_minmax'] +
         TH["score_p10p90"]*df['flag_p10p90'] +
