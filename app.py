@@ -5,6 +5,8 @@ import numpy as np
 import pickle
 import os
 import tempfile
+import seaborn as sns
+import matplotlib.pyplot as plt
 from function_preprocessing_motorbike import preprocess_motobike_data
 from build_model_price_anomaly_detection import detect_outliers
 
@@ -131,10 +133,13 @@ model = load_model(MODEL_PATH)
 
 st.title("Motorbike Price Prediction & Anomaly Detection")
 st.markdown("Ứng dụng cho phép: 1) Dự đoán giá xe máy (nhập tay hoặc upload file) 2) Phát hiện xe bất thường (upload file)")
+st.image("xe_may_cu.jpg", caption="Xe máy cũ")
 
-page = st.sidebar.selectbox("Chọn chức năng", ["Dự đoán giá", "Phát hiện bất thường"])
+# page = st.sidebar.selectbox("Chọn chức năng", ["Dự đoán giá", "Phát hiện bất thường"])
+menu = ["Giới thiệu", "Bài toán nghiệp vụ", "Đánh giá mô hình và Kết quả", "Dự đoán giá", "Phát hiện xe bất thường"]
+page = st.sidebar.selectbox('Menu', menu)
 
-# --- PREDICTION PAGE ---
+
 @st.cache_data
 def load_reference_data():
     return preprocess_motobike_data(TRAINING_DATA)
@@ -146,7 +151,48 @@ bike_type_list = sorted(df_ref['bike_type'].dropna().unique())
 origin_list = sorted(df_ref['origin'].dropna().unique())
 engine_capacity_list = sorted(df_ref['engine_capacity'].dropna().unique())
 
-if page == "Dự đoán giá":
+if page == 'Giới thiệu':    
+    st.subheader("[Trang chủ](https://www.chotot.com/)")  
+
+elif page == 'Bài toán nghiệp vụ':    
+    st.subheader("[Trang chủ](https://www.chotot.com/)")  
+
+elif page == 'Đánh giá mô hình và Kết quả':    
+    st.subheader("[Trang chủ](https://www.chotot.com/)")  
+
+    df_home = preprocess_motobike_data(TRAINING_DATA)
+    st.subheader("Dữ liệu xe máy cũ (10 mẫu)")
+    st.dataframe(df_home.head(10))
+
+    # --- Tạo bảng đếm số lượng xe theo thương hiệu ---
+    brand_grouped = (
+        df_home
+            .groupby('brand_grouped')
+            .size()
+            .reset_index(name='Số lượng xe')
+            .rename(columns={'brand_grouped': 'Thương hiệu'})
+            .sort_values('Số lượng xe', ascending=False)
+    )
+
+    # --- Vẽ biểu đồ ---
+    st.subheader("Biểu đồ số lượng xe theo thương hiệu")
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    sns.barplot(data=brand_grouped, x='Thương hiệu', y='Số lượng xe', ax=ax)
+
+    ax.set_xlabel("Thương hiệu")
+    ax.set_ylabel("Số lượng xe")
+    ax.set_title("Phân bố số lượng xe theo thương hiệu")
+    plt.xticks(rotation=45)
+
+    st.pyplot(fig)
+    # st.image("thong_ke.png", caption="Thong ke xe may cu") # có thể dùng image
+
+
+elif page == "Dự đoán giá":
+
+    # --- PREDICTION PAGE ---
+
     st.header("Dự đoán giá xe máy")
 
     mode = st.radio("Chọn cách input:", ["Nhập tay một xe", "Upload file (Excel/CSV) để dự đoán nhiều xe)"])
