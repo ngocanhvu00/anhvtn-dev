@@ -16,7 +16,7 @@ def detect_outliers(data_input, model_path, input_is_df=False, helpers=None):
     # 0. THRESHOLDS
     TH = {
         # Business rule (mileage)
-        "min_km_per_year": 2000,
+        "min_km_per_year": 200,
         "max_km_per_year": 20000,
 
         # Residual threshold
@@ -225,7 +225,7 @@ def detect_outliers(data_input, model_path, input_is_df=False, helpers=None):
     print(f"Tổng bản ghi: {len(df):,}")
     print(f"Số bản ghi bất thường: {len(anomaly):,} "
           f"({100*len(anomaly)/len(df):.2f}%)")
-    print("Đã xuất 'outliers_detected.csv'.")
+    print("Đã xuất 'outliers_detected_full.csv'.")
 
     return df, anomaly
 

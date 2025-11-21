@@ -7,6 +7,7 @@ import os
 import tempfile
 import seaborn as sns
 import matplotlib.pyplot as plt
+from streamlit.components.v1 import html
 from function_preprocessing_motorbike import preprocess_motobike_data
 from build_model_price_anomaly_detection import detect_outliers
 
@@ -136,7 +137,7 @@ st.markdown("Ứng dụng cho phép: 1) Dự đoán giá xe máy (nhập tay ho�
 st.image("xe_may_cu.jpg", caption="Xe máy cũ")
 
 # page = st.sidebar.selectbox("Chọn chức năng", ["Dự đoán giá", "Phát hiện bất thường"])
-menu = ["Giới thiệu", "Bài toán nghiệp vụ", "Đánh giá mô hình và Kết quả", "Dự đoán giá", "Phát hiện xe bất thường"]
+menu = ["Giới thiệu", "Bài toán nghiệp vụ", "Đánh giá mô hình và Báo cáo", "Dự đoán giá", "Phát hiện xe bất thường"]
 page = st.sidebar.selectbox('Menu', menu)
 
 
@@ -151,44 +152,214 @@ bike_type_list = sorted(df_ref['bike_type'].dropna().unique())
 origin_list = sorted(df_ref['origin'].dropna().unique())
 engine_capacity_list = sorted(df_ref['engine_capacity'].dropna().unique())
 
-if page == 'Giới thiệu':    
+# if page == 'Giới thiệu':    
+#     st.subheader("[Trang chủ](https://www.chotot.com/)")  
+
+#     st.markdown("""
+#     **Khách hàng:** Chợ Tốt – nền tảng thương mại điện tử hàng đầu tại Việt Nam.  
+#     **Lĩnh vực:** Mua bán xe máy cũ trên nền tảng.  
+
+#     **Vấn đề hiện tại:**  
+#     Giá rao bán xe máy cũ trên thị trường có sự biến động lớn, khiến người mua khó xác định mức giá hợp lý và người bán cũng gặp khó khăn khi định giá cạnh tranh.  
+
+#     **Mục tiêu giải pháp:**  
+#     - Xây dựng **mô hình dự báo giá** giúp ước tính chính xác mức giá thị trường phù hợp cho từng xe máy được đăng bán.  
+#     - Phát triển **mô hình phát hiện bất thường (anomaly detection)** để gắn cờ các tin đăng có giá bất thường nhằm hỗ trợ kiểm duyệt hoặc đánh giá thủ công.  
+#     - Hỗ trợ cả người mua lẫn người bán đưa ra quyết định giá tốt hơn.  
+#     - Nâng cao độ tin cậy và trải nghiệm của người dùng trên nền tảng Chợ Tốt.
+#     """)
+
+if page == 'Giới thiệu':
+    st.subheader("[Trang chủ Chợ Tốt](https://www.chotot.com/)")
+    
+    st.header('Giới thiệu dự án')
+    st.markdown('''Đây là dự án xây dựng hệ thống hỗ trợ **định giá xe máy cũ** và **phát hiện tin đăng bất thường** trên nền tảng *Chợ Tốt* - trong khóa đồ án tốt nghiệp Data Science and Machine Learning 2024 lớp DL07_K308 của nhóm 6. \nThành viên nhóm gồm có:
+        \n1. Vũ Thị Ngọc Anh \n2. Nguyễn Phạm Quỳnh Anh''')
+    
+    st.header('Mục tiêu của dự án')
+    # st.text('''1. Tạo mô hình đề xuất xe máy tương tự đối với mẫu xe được chọn hoặc từ khóa tìm kiếm do người dùng cung cấp.\n2. Phân khúc thị trường xe máy''')
+    st.write("""
+        Mục tiêu của dự án:
+        - Mang lại **sự minh bạch** cho thị trường xe máy cũ.
+        - **Tối ưu hóa** quá trình kiểm duyệt tin đăng.
+        - Hỗ trợ người dùng đưa ra quyết định chính xác hơn.
+        """)
+
+    st.header('Phân công công việc')
+    st.write("""
+        - Data preparation: Ngọc Anh và Quỳnh Anh
+        - Price prediction by traditional ML: Ngọc Anh và Quỳnh Anh
+        - Price prediction by pyspark: Ngọc Anh
+        - Price anomaly detection: Ngọc Anh
+        - Slide making: Ngọc Anh và Quỳnh Anh
+        - Giao diện streamlit: Ngọc Anh
+
+        """)
+elif page == 'Bài toán nghiệp vụ':
+    st.subheader("[Trang chủ](https://www.chotot.com/)")
+
+    st.markdown("""
+
+        ### Vấn đề nghiệp vụ
+        - Giá niêm yết không đồng nhất, khó xác định giá thị trường.
+        - Nhiều tin đăng có giá bất thường gây nhiễu dữ liệu.
+        - Kiểm duyệt thủ công tốn thời gian và không nhất quán.
+        - Cần một hệ thống dự báo giá và cảnh báo bất thường tự động.
+
+        ---
+
+        ### Bài toán đặt ra
+        - Xây dựng mô hình **Price Prediction**.
+        - Thiết kế mô hình **Anomaly Detection** (ML-based + Rule-based).
+        - Tối ưu quy trình kiểm duyệt và nâng cao chất lượng tin đăng.
+
+        ---
+
+        ### Phạm vi triển khai
+        - Tối ưu & chuẩn hóa dữ liệu thô.
+        - Tạo đặc trưng cho mô hình dự đoán giá.
+        - Huấn luyện mô hình **Regression** để ước lượng giá thị trường.
+        - Xây dựng hệ thống gắn cờ bất thường gồm:
+        - **Model-based score** (ML)
+        - **Business rule score** (Rule-based)
+        - Triển khai giao diện demo bằng **Streamlit**.
+
+    """)
+
+    st.header("Thu thập dữ liệu")
+
+    st.markdown("""        
+    Bộ dữ liệu gồm **7.208 tin đăng** với **18 thuộc tính** (thương hiệu, dòng xe, số km, năm đăng ký, giá niêm yết, mô tả…) được thu thập từ nền tảng **Chợ Tốt** (trước ngày 01/07/2025).  
+
+    Bộ dữ liệu bao gồm các thông tin sau:
+
+    - **id**: số thứ tự của sản phẩm trong bộ dữ liệu  
+    - **Tiêu đề**: tựa đề bài đăng bán sản phẩm  
+    - **Giá**: giá bán của xe máy  
+    - **Khoảng giá min**: giá sàn ước tính của xe máy  
+    - **Khoảng giá max**: giá trần ước tính của xe máy  
+    - **Địa chỉ**: địa chỉ giao dịch (phường, quận, thành phố Hồ Chí Minh)  
+    - **Mô tả chi tiết**: mô tả thêm về sản phẩm — đặc điểm nổi bật, tình trạng, thông tin khác  
+    - **Thương hiệu**: hãng sản xuất (Honda, Yamaha, Piaggio, SYM…)  
+    - **Dòng xe**: dòng xe cụ thể (Air Blade, Vespa, Exciter, LEAD, Vario, …)  
+    - **Năm đăng ký**: năm đăng ký lần đầu của xe  
+    - **Số km đã đi**: số kilomet xe đã vận hành  
+    - **Tình trạng**: tình trạng hiện tại (ví dụ: đã sử dụng)  
+    - **Loại xe**: Xe số, Tay ga, Tay côn/Moto  
+    - **Dung tích xe**: dung tích xi-lanh (ví dụ: Dưới 50cc, 50–100cc, 100–175cc, …)  
+    - **Xuất xứ**: quốc gia sản xuất (Việt Nam, Đài Loan, Nhật Bản, ...)  
+    - **Chính sách bảo hành**: thông tin bảo hành nếu có  
+    - **Trọng lượng**: trọng lượng ước tính của xe  
+    - **Href**: đường dẫn tới bài đăng sản phẩm  
+    """)
+
+
+elif page == 'Đánh giá mô hình và Báo cáo':    
     st.subheader("[Trang chủ](https://www.chotot.com/)")  
 
-elif page == 'Bài toán nghiệp vụ':    
-    st.subheader("[Trang chủ](https://www.chotot.com/)")  
+    # df_home = preprocess_motobike_data(TRAINING_DATA)
+    # st.subheader("Dữ liệu xe máy cũ (10 mẫu)")
+    # st.dataframe(df_home.head(10))
+    # st.subheader("Quy trình thực hiện")
+    st.subheader("I. Thống kê mô tả sơ bộ")
 
-elif page == 'Đánh giá mô hình và Kết quả':    
-    st.subheader("[Trang chủ](https://www.chotot.com/)")  
-
-    df_home = preprocess_motobike_data(TRAINING_DATA)
-    st.subheader("Dữ liệu xe máy cũ (10 mẫu)")
-    st.dataframe(df_home.head(10))
-
-    # --- Tạo bảng đếm số lượng xe theo thương hiệu ---
-    brand_grouped = (
-        df_home
-            .groupby('brand_grouped')
-            .size()
-            .reset_index(name='Số lượng xe')
-            .rename(columns={'brand_grouped': 'Thương hiệu'})
-            .sort_values('Số lượng xe', ascending=False)
-    )
-
+    # st.markdown("""
+    # **1. Thống kê mô tả sơ bộ** 
+    # """)
+    st.markdown("""        
+    Bộ dữ liệu gồm **7.208 tin đăng** với **18 thuộc tính** (thương hiệu, dòng xe, số km, năm đăng ký, giá niêm yết, mô tả…) được thu thập từ nền tảng **Chợ Tốt** (trước ngày 01/07/2025).  
+                """)
     # --- Vẽ biểu đồ ---
-    st.subheader("Biểu đồ số lượng xe theo thương hiệu")
 
-    fig, ax = plt.subplots(figsize=(10, 5))
-    sns.barplot(data=brand_grouped, x='Thương hiệu', y='Số lượng xe', ax=ax)
+    # Hiển thị 4 biểu đồ dạng lưới 2x2
+    col1, col2 = st.columns(2)
+    with col1:
+        st.image("brand_grouped_count.png")
+        st.image("age_bin_stats.png")
 
-    ax.set_xlabel("Thương hiệu")
-    ax.set_ylabel("Số lượng xe")
-    ax.set_title("Phân bố số lượng xe theo thương hiệu")
-    plt.xticks(rotation=45)
+    with col2:
+        st.image("price_bin_stats.png")
+        st.image("mileage_bin_stats.png")
 
-    st.pyplot(fig)
-    # st.image("thong_ke.png", caption="Thong ke xe may cu") # có thể dùng image
+    st.subheader("II. Mô hình dự đoán giá xe máy")
 
+    st.markdown("""
+    **Đánh giá mô hình** 
+                
+    Chúng tôi thử nghiệm nhiều mô hình machine learning, bao gồm **Random Forest, SVR, Gradient Boosting, Decision Tree** và **Linear Regression**. Trong số đó, **Random Forest** cho kết quả vượt trội nhất, thể hiện rõ qua bảng dưới đây:
+    ### 📊 So sánh hiệu quả các mô hình
 
+    | Mô hình              | R²       | MAE (VNĐ)        | RMSE (VNĐ)       |
+    |---------------------|----------|------------------|------------------|
+    | **Random Forest**    | 0.888230 | 4,381,802        | 7,635,801        |
+    | **SVR**              | 0.871969 | 4,607,752        | 8,172,413        |
+    | **Gradient Boosting**| 0.851320 | 4,884,985        | 8,806,793        |
+    | **Decision Tree**    | 0.813617 | 5,319,813        | 9,860,408        |
+    | **Linear Regression**| 0.731268 | 6,343,373        | 11,840,010       |
+    
+    """)
+    st.image("actual_vs_predicted.png")
+    st.markdown("""
+    => Kết quả đánh giá cho thấy **Random Forest là mô hình có hiệu suất tốt nhất**. Do đó, chúng tôi lựa chọn Random Forest làm mô hình chính cho bài toán **dự đoán giá xe máy**.
+                """)
+    
+    st.subheader("III. Mô hình phát hiện xe bất thường")
+
+    st.markdown("""
+        ##### Hệ thống phát hiện bất thường được xây dựng dựa trên **hai nhóm tiêu chí**: **Điểm số từ mô hình học máy** (`score_model_based`) và Điểm số từ logic nghiệp vụ** (`score_business_based`) 
+            """)
+    st.markdown("""
+        ###### Hai nhóm tiêu chí này được kết hợp nhằm đảm bảo việc phát hiện bất thường vừa **khách quan theo mô hình**, vừa **phù hợp thực tế kinh doanh**.   
+                """)
+
+    st.markdown("""
+        #### 1. Tiêu chí đánh dấu bất thường theo logic học máy (score_model_based) (4 tiêu chí)
+
+        ##### **1. `flag_resid` – Dựa trên phần dư (Residual Z-score)**
+        - Ngưỡng được đặt là **3**.
+        - Nếu **residual_z > 3** → `flag_resid = 1` (bất thường).  
+        - Nếu không → `flag_resid = 0`.
+
+        ---
+
+        ##### **2. `flag_minmax` – Dựa trên khoảng giá hợp lý**
+        - Nếu **giá niêm yết nằm ngoài khoảng [min_price, max_price]** → `flag_minmax = 1`.  
+        - Nếu không → `flag_minmax = 0`.
+
+        ---
+
+        ##### **3. `flag_p10p90` – Dựa trên phân vị theo phân khúc**
+        - Xác định **phân vị 10% (P10)** và **90% (P90)** cho từng phân khúc xe.
+        - Nếu giá trị nằm **ngoài khoảng P10–P90** → `flag_p10p90 = 1`.  
+        - Nếu không → `flag_p10p90 = 0`.
+
+        ---
+
+        ##### **4. `flag_unsup` – Tổng hợp từ 3 mô hình học máy không giám sát: Isolation Forest, Local Outlier Factor, and KMeans**
+        - Với Kmeans, điểm bất thường là điểm có số điểm trên cụm < 10% tổng thể hoặc nằm trong 5% điểm xa tâm cụm.
+        - Nếu hai trong ba mô hình trên đánh dấu bất thường thì flag_unsup = 1
+
+        ---
+        ##### Điểm logic theo mô hình ***score_model_based*** là tổng của 4 điểm trên, trong đó sẽ được áp dụng trọng số 0.4 cho flag_resid, và 0.2 cho các tiêu chí còn lại.
+                """)
+
+    
+    st.markdown("""
+        ##### 2. Tiêu chí đánh dấu bất thường theo logic nghiệp vụ (score_business_based):
+        - Với tiêu chí này, chúng tôi chọn số liệu "Số km đã đi" để đánh giá. Những xe chạy quá ít hay quá nhiều so với độ tuổi sẽ có vấn đề.
+        - Nếu số km đã đi < 200 * tuổi xe -> số km quá thấp so với tuổi xe -> nghi vấn Tua công-tơ-mét
+        - Nếu số km đã đi > 20000 * tuổi xe -> số km cao bất thường -> có thể xe dùng để khai thác dịch vụ hoặc khai báo không trung thực
+        """)
+    st.markdown("""
+        ##### Điểm tổng hợp cuối cùng (final_score) là tổng của 2 điểm theo logic model và theo logic nghiệp vụ trên. Nếu xe nào có tổng điểm **lớn hơn 50** thì sẽ được đánh dấu là bất thường.
+        """)
+    st.markdown("""
+        ##### Ví dụ 10 mẫu xe bất thường được phát hiện:
+        """)
+    df_anomaly = pd.read_csv("outliers_detected_full.csv")
+    # st.subheader("Ví dụ 10 mẫu xe bất thường được phát hiện:")
+    st.dataframe(df_anomaly.sort_values('final_score', ascending=False).head(10))
+    
 elif page == "Dự đoán giá":
 
     # --- PREDICTION PAGE ---
@@ -278,9 +449,44 @@ elif page == "Dự đoán giá":
                 except Exception as e:
                     st.exception(e)
 
-    else:
+    # else:
+    #     st.subheader("Upload file để dự đoán nhiều xe (Excel/CSV)")
+    #     uploaded_file = st.file_uploader("Chọn file (xlsx/csv)", type=['xlsx','csv'])
+    #     if uploaded_file is not None:
+    #         # save to temp
+    #         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp:
+    #             tmp.write(uploaded_file.getvalue())
+    #             tmp_path = tmp.name
+
+    #         try:
+    #             df_proc = preprocess_motobike_data(tmp_path, is_inference=True)
+    #             # fill brand_meanprice bằng helpers
+    #             df_proc['brand_meanprice'] = df_proc['brand'].map(
+    #                 helpers['brand_mean_map']
+    #             )
+    #         except Exception as e:
+    #             st.error(f"Lỗi khi tiền xử lý file: {e}")
+    #             df_proc = None
+
+    #         if df_proc is not None:
+    #             if model is None:
+    #                 st.error(f"Không tìm thấy model tại '{MODEL_PATH}'.")
+    #             else:
+    #                 cat_cols = ['segment','bike_type','origin','engine_capacity']
+    #                 num_cols = ['age','mileage_km','min_price','max_price','brand_meanprice']
+    #                 X = df_proc[cat_cols + num_cols]
+    #                 df_proc['predicted_price'] = np.expm1(model.predict(X))
+
+    #                 st.write("Kết quả (một vài dòng):")
+    #                 st.dataframe(df_proc.head(10))
+
+    #                 csv = df_proc.to_csv(index=False).encode('utf-8')
+    #                 st.download_button("Tải kết quả (CSV)", data=csv, file_name="predictions.csv", mime='text/csv')
+
+    else: 
         st.subheader("Upload file để dự đoán nhiều xe (Excel/CSV)")
         uploaded_file = st.file_uploader("Chọn file (xlsx/csv)", type=['xlsx','csv'])
+
         if uploaded_file is not None:
             # save to temp
             with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp:
@@ -288,25 +494,107 @@ elif page == "Dự đoán giá":
                 tmp_path = tmp.name
 
             try:
-                df_proc = preprocess_motobike_data(tmp_path)
-            except Exception as e:
-                st.error(f"Lỗi khi tiền xử lý file: {e}")
-                df_proc = None
-
-            if df_proc is not None:
-                if model is None:
-                    st.error(f"Không tìm thấy model tại '{MODEL_PATH}'.")
+                # ===============================
+                # 1) Load file raw
+                # ===============================
+                if uploaded_file.name.endswith(".csv"):
+                    df_raw = pd.read_csv(tmp_path)
                 else:
-                    cat_cols = ['segment','bike_type','origin','engine_capacity']
-                    num_cols = ['age','mileage_km','min_price','max_price','brand_meanprice']
-                    X = df_proc[cat_cols + num_cols]
-                    df_proc['predicted_price'] = np.expm1(model.predict(X))
+                    df_raw = pd.read_excel(tmp_path)
+                    df_raw = df_raw.rename(columns={
+                        'Giá': 'price',
+                        'Khoảng giá min': 'min_price',
+                        'Khoảng giá max': 'max_price',
+                        'Thương hiệu': 'brand',
+                        'Dòng xe': 'model',
+                        'Năm đăng ký': 'registration_year',
+                        'Số Km đã đi': 'mileage_km',
+                        'Tình trạng': 'condition',
+                        'Loại xe': 'bike_type',
+                        'Dung tích xe': 'engine_capacity',
+                        'Xuất xứ': 'origin',
+                        'Chính sách bảo hành': 'warranty_policy',
+                        'Trọng lượng': 'weight'
+                    })
 
-                    st.write("Kết quả (một vài dòng):")
-                    st.dataframe(df_proc.head(50))
+                # ===============================
+                # 2) Chỉ giữ đúng các cột cần thiết
+                # KHÔNG CLEAN nữa để KHÔNG lệch pipeline nhập tay
+                # ===============================
+                needed_cols = [
+                    'brand', 'model', 'bike_type', 'origin', 'engine_capacity',
+                    'registration_year', 'mileage_km', 'min_price', 'max_price'
+                ]
 
-                    csv = df_proc.to_csv(index=False).encode('utf-8')
-                    st.download_button("Tải kết quả (CSV)", data=csv, file_name="predictions.csv", mime='text/csv')
+                df = df_raw[needed_cols].copy()
+
+                # ===============================
+                # 3) Chuyển NaN min/max về NaN (giống nhập tay)
+                # ===============================
+                df['min_price'] = df['min_price'].replace(0, np.nan)
+                df['max_price'] = df['max_price'].replace(0, np.nan)
+
+                # ===============================
+                # 4) Tính age giống hệt nhập tay
+                # ===============================
+                current_year = 2025
+                df['age'] = current_year - pd.to_numeric(df['registration_year'], errors='coerce')
+
+                # ===============================
+                # 5) Apply grouping EXACT như nhập tay
+                # ===============================
+                if helpers is not None:
+                    # brand_grouped
+                    df['brand_grouped'] = df['brand'].apply(
+                        lambda b: 'Hãng khác' if b in helpers['rare_brands'] else b
+                    )
+
+                    # model_grouped theo từng brand_grouped
+                    def map_model(row):
+                        bg = row['brand_grouped']
+                        rare_models = helpers['model_group_maps'].get(bg, set())
+                        return 'Dòng khác' if row['model'] in rare_models else row['model']
+
+                    df['model_grouped'] = df.apply(map_model, axis=1)
+
+                    # segment
+                    df['segment'] = df['brand_grouped'] + '_' + df['model_grouped']
+
+                    # brand_meanprice
+                    df['brand_meanprice'] = df['brand'].map(helpers['brand_mean_map'])
+
+                else:
+                    # fallback
+                    df['brand_grouped'] = df['brand']
+                    df['model_grouped'] = df['model']
+                    df['segment'] = df['brand'] + '_' + df['model']
+                    df['brand_meanprice'] = np.nan
+                    st.warning("Không có helpers, dự đoán có thể không chính xác.")
+
+                # ===============================
+                # 6) Chuẩn bị dữ liệu để predict
+                # ===============================
+                cat_cols = ['segment','bike_type','origin','engine_capacity']
+                num_cols = ['age','mileage_km','min_price','max_price','brand_meanprice']
+
+                X = df[cat_cols + num_cols]
+
+                # ===============================
+                # 7) Predict
+                # ===============================
+                df['predicted_price'] = np.expm1(model.predict(X))
+
+                # ===============================
+                # 8) Show result
+                # ===============================
+                st.write("Kết quả (10 dòng đầu):")
+                st.dataframe(df.head(10))
+
+                csv = df.to_csv(index=False).encode('utf-8')
+                st.download_button("Tải kết quả (CSV)", data=csv, file_name="predictions.csv", mime='text/csv')
+
+            except Exception as e:
+                st.error(f"Lỗi xử lý file: {e}")
 
 
 # --- ANOMALY PAGE ---

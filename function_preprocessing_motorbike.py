@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-def preprocess_motobike_data(path, current_year=2025):
+def preprocess_motobike_data(path, current_year=2025, is_inference=False):
     """
     Load + làm sạch + tạo features cho dữ liệu xe máy
     
@@ -42,17 +42,29 @@ def preprocess_motobike_data(path, current_year=2025):
     })
 
     # 3. Loại các cột có 1 giá trị + dòng NaN
-    df = df.dropna().reset_index(drop=True)
+    # df = df.dropna().reset_index(drop=True)
+    
+    # Nếu KHÔNG phải inference -> được phép drop toàn bộ NA (bao gồm price)
+    if not is_inference:
+        df = df.dropna().reset_index(drop=True)
+
+    # Nếu là inference -> chỉ drop NA ở các cột bắt buộc, ngoại trừ 'price'
+    else:
+        # danh sách cột phải có để model chạy
+        required_cols = [c for c in df.columns if c != "price"]
+
+        df = df.dropna(subset=required_cols).reset_index(drop=True)
+
     df = df.drop(columns=['warranty_policy', 'weight'], errors='ignore')
 
-    # 4. Clean price
-    df['price'] = (
-        df['price']
-        .astype(str)
-        .str.replace('[^0-9]', '', regex=True)
-        .replace('', np.nan)
-        .astype(float)
-    )
+    # # 4. Clean price
+    # df['price'] = (
+    #     df['price']
+    #     .astype(str)
+    #     .str.replace('[^0-9]', '', regex=True)
+    #     .replace('', np.nan)
+    #     .astype(float)
+    # )
 
     # 5. Clean min_price / max_price
     def parse_minmax_price(s):
@@ -66,8 +78,8 @@ def preprocess_motobike_data(path, current_year=2025):
     df['min_price'] = df['min_price'].apply(parse_minmax_price)
     df['max_price'] = df['max_price'].apply(parse_minmax_price)
 
-    # Loại price = 0
-    df = df[df['price'] != 0]
+    # # Loại price = 0
+    # df = df[df['price'] != 0]
 
     # 6. Xóa cột condition (1 giá trị)
     df = df.drop(columns=['condition'], errors='ignore')
@@ -114,14 +126,32 @@ def preprocess_motobike_data(path, current_year=2025):
     # 13. Segment feature
     df['segment'] = df['brand_grouped'] + '_' + df['model_grouped']
 
-    # 14. Log price
-    df['log_price'] = np.log1p(df['price'])
+    # # 14. Log price
+    # df['log_price'] = np.log1p(df['price'])
     
-    # 15. Brand-level mean price
-    brand_mean_log = df.groupby('brand')['log_price'].mean().rename('brand_meanprice')
-    df = df.merge(brand_mean_log, on='brand', how='left')
+    # # 15. Brand-level mean price
+    # brand_mean_log = df.groupby('brand')['log_price'].mean().rename('brand_meanprice')
+    # df = df.merge(brand_mean_log, on='brand', how='left')
 
-    # Drop duplicates
-    df = df.drop_duplicates().reset_index(drop=True)
+    # # Drop duplicates
+    # df = df.drop_duplicates().reset_index(drop=True)
+
+    # return df
+
+    # -------------------------
+    # ❗CHỈ TÍNH log_price + brand_meanprice KHI TRAIN
+    # -------------------------
+    if not is_inference:
+        df['price'] = (
+            df['price'].astype(str).str.replace('[^0-9]', '', regex=True).replace('', np.nan).astype(float)
+        )
+        df = df[df['price'] != 0]
+
+        df['log_price'] = np.log1p(df['price'])
+        brand_mean_log = df.groupby('brand')['log_price'].mean().rename('brand_meanprice')
+        df = df.merge(brand_mean_log, on='brand', how='left')
+    else:
+        # ❗KHI DỰ ĐOÁN: brand_meanprice = trung bình của toàn tập train (loader từ helpers)
+        df['brand_meanprice'] = np.nan  # sẽ được fill sau bởi helpers
 
     return df
