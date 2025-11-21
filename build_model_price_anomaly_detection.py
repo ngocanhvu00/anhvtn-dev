@@ -151,18 +151,23 @@ def detect_outliers(
     if_model = pickle.load(open(if_path,"rb"))
     df['flag_if'] = (if_model.predict(Xu)==-1).astype(int)
 
-    # LOF
-    if is_train:
-        # LOF bình thường cho train
-        lof_model = pickle.load(open(lof_path,"rb"))  # đã train với novelty=False
-        lof_pred = lof_model.fit_predict(Xu)
-        df['flag_lof'] = (lof_pred==-1).astype(int)
-    else:
-        # LOF cho mẫu mới (novelty=True)
-        lof_model = pickle.load(open(lof_path,"rb"))  # đã train với novelty=True
-        lof_pred = lof_model.predict(Xu)  # -1 = outlier, 1 = normal
-        df['flag_lof'] = (lof_pred==-1).astype(int)
+    # # LOF
+    # if is_train:
+    #     # LOF bình thường cho train
+    #     lof_model = pickle.load(open(lof_path,"rb"))  # đã train với novelty=False
+    #     lof_pred = lof_model.fit_predict(Xu)
+    #     df['flag_lof'] = (lof_pred==-1).astype(int)
+    # else:
+    #     # LOF cho mẫu mới (novelty=True)
+    #     lof_model = pickle.load(open(lof_path,"rb"))  # đã train với novelty=True
+    #     lof_pred = lof_model.predict(Xu)  # -1 = outlier, 1 = normal
+    #     df['flag_lof'] = (lof_pred==-1).astype(int)
         
+    # LOF
+    lof_model = pickle.load(open(lof_path, "rb"))  # model đã train với novelty=True
+    lof_pred = lof_model.predict(Xu)               # -1 = outlier, 1 = normal
+    df['flag_lof'] = (lof_pred == -1).astype(int)
+    
     # KMeans
     km_model = pickle.load(open(km_path,"rb"))
     cl = km_model.predict(Xu)
@@ -171,13 +176,13 @@ def detect_outliers(
     r95 = np.percentile(dists,95)
     df['flag_kmeans'] = (dists>r95).astype(int)
 
-    # Small cluster rule chỉ dùng khi là train
-    if is_train and helpers is not None and 'km_helper' in helpers:
-        ratios = helpers['km_helper']['ratios']
-        small_clusters = [k for k,v in ratios.items() if v<TH['kmeans_small_ratio']]
-        df['flag_kmeans_small'] = [1 if k in small_clusters else 0 for k in cl]
-    else:
-        df['flag_kmeans_small'] = 0
+    # # Small cluster rule chỉ dùng khi là train
+    # if is_train and helpers is not None and 'km_helper' in helpers:
+    #     ratios = helpers['km_helper']['ratios']
+    #     small_clusters = [k for k,v in ratios.items() if v<TH['kmeans_small_ratio']]
+    #     df['flag_kmeans_small'] = [1 if k in small_clusters else 0 for k in cl]
+    # else:
+    #     df['flag_kmeans_small'] = 0
     
 
     # Combined unsupervised
@@ -209,7 +214,7 @@ def detect_outliers(
 
     return df, anomaly
 
-df, anomaly = detect_outliers(
-    "data_motobikes.xlsx",
-    "motobike_price_prediction_model.pkl"
-)
+# df, anomaly = detect_outliers(
+#     "data_motobikes.xlsx",
+#     "motobike_price_prediction_model.pkl"
+# )

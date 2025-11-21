@@ -92,46 +92,6 @@ def build_training_helpers(path=TRAINING_DATA):
                     .rename(columns={'mean': 'resid_mean', 'std': 'resid_std'})
         ).reset_index()
 
-        # =============== 4) KMEANS UNSUPERVISED STATS ==================
-
-        unsup_feats = ['age', 'mileage_km', 'resid_z'] 
-
-        Xu = scaler.transform(df_train[unsup_feats].fillna(0).values)
-
-        # =============== KMEANS R95 CALC ==================
-        cluster_labels = kmeans.predict(Xu)
-        centers = kmeans.cluster_centers_
-        K = len(centers)
-        r95_map = {}
-
-        for k in range(K):
-            pts = Xu[cluster_labels == k]
-            if len(pts) == 0:
-                r95_map[k] = 0
-                continue
-
-            dists = np.linalg.norm(pts - centers[k], axis=1)
-            r95_map[k] = np.percentile(dists, 95)
-
-        # size ratio
-        n = len(df_train)
-        cluster_sizes = {k: (cluster_labels == k).sum() for k in range(4)}
-        cluster_ratios = {k: cluster_sizes[k] / n for k in range(4)}
-
-        # compute r95 of each cluster
-        r95_map = {}
-        for k in range(4):
-            pts = Xu[cluster_labels == k]
-            dists = np.linalg.norm(pts - pts.mean(axis=0), axis=1)
-            r95_map[k] = np.percentile(dists, 95)
-
-        km_helper = {
-            'centers': kmeans.cluster_centers_,
-            'ratios': cluster_ratios,
-            'r95': r95_map,
-            'scaler': scaler   # save scaler to transform new input
-        }
-
         seg_resid_map = seg_resid_stats.set_index('segment').to_dict('index')
         # format: seg_resid_map[seg] = {'resid_mean':..., 'resid_std':...}
 
@@ -140,8 +100,7 @@ def build_training_helpers(path=TRAINING_DATA):
             'model_group_maps': model_group_maps,
             'brand_mean_map': brand_mean_map,
             'seg_price_map': seg_price_map,
-            'seg_resid_map': seg_resid_map,
-            'km_helper': km_helper
+            'seg_resid_map': seg_resid_map
         }
 
     except Exception as e:
