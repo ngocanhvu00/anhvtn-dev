@@ -26,35 +26,6 @@ def load_model(path=MODEL_PATH):
         return pickle.load(f)
 
 @st.cache_data
-# def build_training_helpers(path=TRAINING_DATA):
-#     """Try to load training data to reconstruct brand/model grouping and brand_meanprice.
-#     Returns a dict with maps and thresholds. If file not present, return None.
-#     """
-#     if not os.path.exists(path):
-#         return None
-#     try:
-#         df_train = preprocess_motobike_data(path)
-#         # brand grouping threshold from preprocess function
-#         brand_counts = df_train['brand'].value_counts()
-#         rare_brands = set(brand_counts[brand_counts < 50].index)
-
-#         # model grouping by brand
-#         model_group_maps = {}
-#         for bg, g in df_train.groupby('brand_grouped'):
-#             counts = g['model'].value_counts()
-#             rare = set(counts[counts < 100].index)
-#             model_group_maps[bg] = rare
-
-#         brand_mean_map = df_train.groupby('brand')['brand_meanprice'].first().to_dict()
-
-#         return {
-#             'rare_brands': rare_brands,
-#             'model_group_maps': model_group_maps,
-#             'brand_mean_map': brand_mean_map
-#         }
-#     except Exception as e:
-#         return None
-
 def build_training_helpers(path=TRAINING_DATA):
     """
     Load training data & build grouping rules + statistical thresholds
@@ -200,23 +171,6 @@ model_list = sorted(df_ref['model_grouped'].dropna().unique())
 bike_type_list = sorted(df_ref['bike_type'].dropna().unique())
 origin_list = sorted(df_ref['origin'].dropna().unique())
 engine_capacity_list = sorted(df_ref['engine_capacity'].dropna().unique())
-
-# if page == 'Giới thiệu':    
-#     st.subheader("[Trang chủ](https://www.chotot.com/)")  
-
-#     st.markdown("""
-#     **Khách hàng:** Chợ Tốt – nền tảng thương mại điện tử hàng đầu tại Việt Nam.  
-#     **Lĩnh vực:** Mua bán xe máy cũ trên nền tảng.  
-
-#     **Vấn đề hiện tại:**  
-#     Giá rao bán xe máy cũ trên thị trường có sự biến động lớn, khiến người mua khó xác định mức giá hợp lý và người bán cũng gặp khó khăn khi định giá cạnh tranh.  
-
-#     **Mục tiêu giải pháp:**  
-#     - Xây dựng **mô hình dự báo giá** giúp ước tính chính xác mức giá thị trường phù hợp cho từng xe máy được đăng bán.  
-#     - Phát triển **mô hình phát hiện bất thường (anomaly detection)** để gắn cờ các tin đăng có giá bất thường nhằm hỗ trợ kiểm duyệt hoặc đánh giá thủ công.  
-#     - Hỗ trợ cả người mua lẫn người bán đưa ra quyết định giá tốt hơn.  
-#     - Nâng cao độ tin cậy và trải nghiệm của người dùng trên nền tảng Chợ Tốt.
-#     """)
 
 if page == 'Giới thiệu':
     st.subheader("[Trang chủ Chợ Tốt](https://www.chotot.com/)")
@@ -500,40 +454,6 @@ elif page == "Dự đoán giá":
                 except Exception as e:
                     st.exception(e)
 
-    # else:
-    #     st.subheader("Upload file để dự đoán nhiều xe (Excel/CSV)")
-    #     uploaded_file = st.file_uploader("Chọn file (xlsx/csv)", type=['xlsx','csv'])
-    #     if uploaded_file is not None:
-    #         # save to temp
-    #         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp:
-    #             tmp.write(uploaded_file.getvalue())
-    #             tmp_path = tmp.name
-
-    #         try:
-    #             df_proc = preprocess_motobike_data(tmp_path, is_inference=True)
-    #             # fill brand_meanprice bằng helpers
-    #             df_proc['brand_meanprice'] = df_proc['brand'].map(
-    #                 helpers['brand_mean_map']
-    #             )
-    #         except Exception as e:
-    #             st.error(f"Lỗi khi tiền xử lý file: {e}")
-    #             df_proc = None
-
-    #         if df_proc is not None:
-    #             if model is None:
-    #                 st.error(f"Không tìm thấy model tại '{MODEL_PATH}'.")
-    #             else:
-    #                 cat_cols = ['segment','bike_type','origin','engine_capacity']
-    #                 num_cols = ['age','mileage_km','min_price','max_price','brand_meanprice']
-    #                 X = df_proc[cat_cols + num_cols]
-    #                 df_proc['predicted_price'] = np.expm1(model.predict(X))
-
-    #                 st.write("Kết quả (một vài dòng):")
-    #                 st.dataframe(df_proc.head(10))
-
-    #                 csv = df_proc.to_csv(index=False).encode('utf-8')
-    #                 st.download_button("Tải kết quả (CSV)", data=csv, file_name="predictions.csv", mime='text/csv')
-
     else: 
         st.subheader("Upload file để dự đoán nhiều xe (Excel/CSV)")
         uploaded_file = st.file_uploader("Chọn file (xlsx/csv)", type=['xlsx','csv'])
@@ -801,8 +721,6 @@ else:
 
                         except Exception as e:
                             st.exception(e)
-
-
 
 
 st.sidebar.markdown("---")
