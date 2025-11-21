@@ -7,11 +7,22 @@ from sklearn.cluster import KMeans
 from function_preprocessing_motorbike import *
 import pickle
 
-def detect_outliers(data_input, model_path, input_is_df=False, helpers=None):
+def detect_outliers(
+    data_input,
+    model_path,
+    input_is_df=False,
+    helpers=None,
+    scaler_path="unsup_scaler.pkl",
+    if_path="if_model.pkl",
+    lof_path="lof_model.pkl",
+    km_path="kmeans_model.pkl",
+    is_train=False
+):
     """
     Detect anomalies cho xe máy.
-    - Nếu input_is_df = False: data_input là đường dẫn file Excel/CSV.
-    - Nếu input_is_df = True: data_input là DataFrame (1 hoặc nhiều xe).
+    - Nếu input_is_df=False: data_input là đường dẫn file Excel/CSV.
+    - Nếu input_is_df=True: data_input là DataFrame.
+    - is_train=True nếu đang chạy trên dữ liệu train (dùng small cluster rule).
     """
     # 0. THRESHOLDS
     TH = {
@@ -21,11 +32,6 @@ def detect_outliers(data_input, model_path, input_is_df=False, helpers=None):
 
         # Residual threshold
         "resid_z_threshold": 3,
-
-        # Unsupervised
-        "if_contam": 0.2,
-        "lof_contam": 0.2,
-        "kmeans_clusters": 4,
         "kmeans_small_ratio": 0.1,
 
         # Final scoring
@@ -48,7 +54,7 @@ def detect_outliers(data_input, model_path, input_is_df=False, helpers=None):
 
     # Load model
     with open(model_path, 'rb') as f:
-        model = pickle.load(f)
+        reg_model = pickle.load(f)
 
     # Define cols
     cat_cols = ['segment','bike_type','origin','engine_capacity']
@@ -56,10 +62,9 @@ def detect_outliers(data_input, model_path, input_is_df=False, helpers=None):
 
     # Build matrix
     X = df[cat_cols + num_cols]
-    # y = df['log_price']
 
     # Predict price
-    df['price_hat'] = np.expm1(model.predict(X))
+    df['price_hat'] = np.expm1(reg_model.predict(X))
 
     # Residual z-score by segment
     df['resid'] = df['price'] - df['price_hat']
@@ -115,11 +120,11 @@ def detect_outliers(data_input, model_path, input_is_df=False, helpers=None):
         )
         df = df.merge(seg_price_stats, on='segment', how='left')
 
-
-    df['flag_minmax'] = ((df['price'] < df['min_price']) |
-                         (df['price'] > df['max_price'])).astype(int)
     df['flag_p10p90'] = ((df['price'] < df['p10']) |
                          (df['price'] > df['p90'])).astype(int)
+    
+    df['flag_minmax'] = ((df['price'] < df['min_price']) |
+                         (df['price'] > df['max_price'])).astype(int)
 
     # business rule số km đã đi
     df['flag_mileage_low'] = (
@@ -136,73 +141,40 @@ def detect_outliers(data_input, model_path, input_is_df=False, helpers=None):
         (df['flag_mileage_high'] == 1)
     ).astype(int)
 
-    # Nếu dữ liệu quá ít (< 10 bản ghi) -> tắt unsupervised
-    if len(df) < 10:
-        df['flag_if'] = 0
-        df['flag_lof'] = 0
-        df['flag_kmeans'] = 0
-        df['flag_unsup'] = 0
+    # Unsupervised features
+    unsup_feats = ['age','mileage_km','resid_z']
+    X_unsup = df[unsup_feats].fillna(0).values
+    scaler = pickle.load(open(scaler_path,"rb"))
+    Xu = scaler.transform(X_unsup)
+
+    # Isolation Forest
+    if_model = pickle.load(open(if_path,"rb"))
+    df['flag_if'] = (if_model.predict(Xu)==-1).astype(int)
+
+    # LOF
+    lof_model = pickle.load(open(lof_path,"rb"))
+    lof_pred = lof_model.fit_predict(Xu)
+    df['flag_lof'] = (lof_pred==-1).astype(int)
+
+    # KMeans
+    km_model = pickle.load(open(km_path,"rb"))
+    cl = km_model.predict(Xu)
+    centers = km_model.cluster_centers_
+    dists = np.linalg.norm(Xu - centers[cl], axis=1)
+    r95 = np.percentile(dists,95)
+    df['flag_kmeans'] = (dists>r95).astype(int)
+
+    # Small cluster rule chỉ dùng khi là train
+    if is_train and helpers is not None and 'km_helper' in helpers:
+        ratios = helpers['km_helper']['ratios']
+        small_clusters = [k for k,v in ratios.items() if v<TH['kmeans_small_ratio']]
+        df['flag_kmeans_small'] = [1 if k in small_clusters else 0 for k in cl]
     else:
+        df['flag_kmeans_small'] = 0
 
-        # Unsupervised models
-        unsup_feats = ['age','mileage_km','resid_z']
-        X_unsup = df[unsup_feats].fillna(0).values
+    # Combined unsupervised
+    df['flag_unsup'] = (df[['flag_if','flag_lof','flag_kmeans']].sum(axis=1)>=2).astype(int)
 
-        scaler = StandardScaler()
-        Xu = scaler.fit_transform(X_unsup)
-
-        # --- Isolation Forest ---
-        if_model = IsolationForest(
-            n_estimators=200,
-            contamination=TH["if_contam"],
-            random_state=42
-        )
-        if_model.fit(Xu)
-        df['flag_if'] = (if_model.predict(Xu) == -1).astype(int)
-
-        # --- KMeans ---
-        n_clusters = TH["kmeans_clusters"]
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-        cluster_labels = kmeans.fit_predict(Xu)
-        df['kmeans_cluster'] = cluster_labels
-
-        cluster_stats = []
-        n_total = len(df)
-        outlier_flags = np.zeros(n_total, dtype=int)
-
-        for k in range(n_clusters):
-            pts = Xu[cluster_labels == k]
-            size = len(pts)
-            center = pts.mean(axis=0)
-            dist = np.linalg.norm(pts - center, axis=1)
-            r95 = np.percentile(dist, 95)
-
-            cluster_stats.append({
-                'cluster': k,
-                'size': size,
-                'center': center,
-                'r95': r95
-            })
-
-            # Outlier rules
-            if size / n_total < TH["kmeans_small_ratio"]:
-                # small cluster
-                outlier_flags[cluster_labels == k] = 1
-            else:
-                # by distance
-                idx = np.where(cluster_labels == k)[0]
-                outlier_idx = idx[dist > r95]
-                outlier_flags[outlier_idx] = 1
-
-        df['flag_kmeans'] = outlier_flags
-
-        # --- LOF ---
-        lof = LocalOutlierFactor(n_neighbors=20, contamination=TH["lof_contam"])
-        lof_fit = lof.fit_predict(Xu)
-        df['flag_lof'] = (lof_fit == -1).astype(int)
-
-        # Combined unsupervised flag
-        df['flag_unsup'] = (df[['flag_if','flag_lof','flag_kmeans']].sum(axis=1) > 1).astype(int)
 
     # Final scoring
     df['score_model_based'] = 100 * (
@@ -229,7 +201,7 @@ def detect_outliers(data_input, model_path, input_is_df=False, helpers=None):
 
     return df, anomaly
 
-# df, anomaly = detect_outliers(
-#     "data_motobikes.xlsx",
-#     "motobike_price_prediction_model.pkl"
-# )
+df, anomaly = detect_outliers(
+    "data_motobikes.xlsx",
+    "motobike_price_prediction_model.pkl"
+)

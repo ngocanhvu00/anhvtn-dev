@@ -8,6 +8,8 @@ import tempfile
 import seaborn as sns
 import matplotlib.pyplot as plt
 from streamlit.components.v1 import html
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
 from function_preprocessing_motorbike import preprocess_motobike_data
 from build_model_price_anomaly_detection import detect_outliers
 
@@ -63,6 +65,12 @@ def build_training_helpers(path=TRAINING_DATA):
 
     try:
         df_train = preprocess_motobike_data(path)
+        # =============== LOAD MODELS ===============
+        with open("unsup_scaler.pkl", "rb") as f:
+            scaler = pickle.load(f)
+
+        with open("kmeans_model.pkl", "rb") as f:
+            kmeans = pickle.load(f)
 
         # =============== 1) BRAND GROUPING ==================
         brand_counts = df_train['brand'].value_counts()
@@ -113,6 +121,46 @@ def build_training_helpers(path=TRAINING_DATA):
                     .rename(columns={'mean': 'resid_mean', 'std': 'resid_std'})
         ).reset_index()
 
+        # =============== 4) KMEANS UNSUPERVISED STATS ==================
+
+        unsup_feats = ['age', 'mileage_km', 'resid_z'] 
+
+        Xu = scaler.transform(df_train[unsup_feats].fillna(0).values)
+
+        # =============== KMEANS R95 CALC ==================
+        cluster_labels = kmeans.predict(Xu)
+        centers = kmeans.cluster_centers_
+        K = len(centers)
+        r95_map = {}
+
+        for k in range(K):
+            pts = Xu[cluster_labels == k]
+            if len(pts) == 0:
+                r95_map[k] = 0
+                continue
+
+            dists = np.linalg.norm(pts - centers[k], axis=1)
+            r95_map[k] = np.percentile(dists, 95)
+
+        # size ratio
+        n = len(df_train)
+        cluster_sizes = {k: (cluster_labels == k).sum() for k in range(4)}
+        cluster_ratios = {k: cluster_sizes[k] / n for k in range(4)}
+
+        # compute r95 of each cluster
+        r95_map = {}
+        for k in range(4):
+            pts = Xu[cluster_labels == k]
+            dists = np.linalg.norm(pts - pts.mean(axis=0), axis=1)
+            r95_map[k] = np.percentile(dists, 95)
+
+        km_helper = {
+            'centers': kmeans.cluster_centers_,
+            'ratios': cluster_ratios,
+            'r95': r95_map,
+            'scaler': scaler   # save scaler to transform new input
+        }
+
         seg_resid_map = seg_resid_stats.set_index('segment').to_dict('index')
         # format: seg_resid_map[seg] = {'resid_mean':..., 'resid_std':...}
 
@@ -121,7 +169,8 @@ def build_training_helpers(path=TRAINING_DATA):
             'model_group_maps': model_group_maps,
             'brand_mean_map': brand_mean_map,
             'seg_price_map': seg_price_map,
-            'seg_resid_map': seg_resid_map
+            'seg_resid_map': seg_resid_map,
+            'km_helper': km_helper
         }
 
     except Exception as e:
@@ -179,19 +228,21 @@ if page == 'Giới thiệu':
     st.header('Mục tiêu của dự án')
     # st.text('''1. Tạo mô hình đề xuất xe máy tương tự đối với mẫu xe được chọn hoặc từ khóa tìm kiếm do người dùng cung cấp.\n2. Phân khúc thị trường xe máy''')
     st.write("""
-        Mục tiêu của dự án:
-        - Mang lại **sự minh bạch** cho thị trường xe máy cũ.
-        - **Tối ưu hóa** quá trình kiểm duyệt tin đăng.
-        - Hỗ trợ người dùng đưa ra quyết định chính xác hơn.
-        """)
+    Mục tiêu của dự án:
+    - **Tăng cường minh bạch** thị trường xe máy cũ thông qua dự báo giá hợp lý.
+    - **Phát hiện các tin đăng bất thường**, giúp lọc ra xe có giá hoặc thông tin sai lệch.
+    - **Hỗ trợ người dùng** đưa ra quyết định mua/bán chính xác và tin cậy hơn.
+    - **Tối ưu hóa quy trình kiểm duyệt** thông tin trên nền tảng giao dịch xe máy.
+    """)
 
     st.header('Phân công công việc')
+
     st.write("""
-        - Data preparation: Ngọc Anh và Quỳnh Anh
-        - Price prediction by traditional ML: Ngọc Anh và Quỳnh Anh
-        - Price prediction by pyspark: Ngọc Anh
-        - Price anomaly detection: Ngọc Anh
-        - Slide making: Ngọc Anh và Quỳnh Anh
+        - Xử lý dữ liệu: Ngọc Anh và Quỳnh Anh
+        - Dự đoán giá xe theo phương pháp ML truyền thống: Ngọc Anh và Quỳnh Anh
+        - Dự đoán giá xe theo PySpark: Ngọc Anh
+        - Phát hiện giá bất thường: Ngọc Anh
+        - Làm slide: Ngọc Anh và Quỳnh Anh
         - Giao diện streamlit: Ngọc Anh
 
         """)
@@ -607,6 +658,12 @@ else:
         horizontal=True
     )
 
+    # Hàm kiểm tra chung
+    def run_detect(df_in, model_path, is_train_flag):
+        df_all, anomaly = detect_outliers(df_in, model_path, input_is_df=True, helpers=helpers, is_train=is_train_flag)
+        return df_all, anomaly
+
+
     # ============================================================
     # MODE 1: NHẬP TAY 1 XE
     # ============================================================
@@ -682,7 +739,8 @@ else:
 
                 try:
                     # Gọi detect_outliers cho 1 xe duy nhất
-                    df_all, anomaly = detect_outliers(df_in, model_path_input, input_is_df=True, helpers=helpers)
+                    # df_all, anomaly = detect_outliers(df_in, model_path_input, input_is_df=True, helpers=helpers)
+                    df_all, anomaly = run_detect(df_in, model_path_input, is_train_flag=False)
 
                     if len(anomaly) > 0:
                         st.error("🚨 Xe này **BẤT THƯỜNG** theo mô hình phát hiện outlier.")
@@ -693,7 +751,7 @@ else:
                 except Exception as e:
                     st.exception(e)
 
-    # ============================================================
+    # ============================================================ 
     # MODE 2: UPLOAD FILE HOẶC DÙNG FILE DEFAULT
     # ============================================================
     else:
@@ -708,25 +766,34 @@ else:
             if not use_default and uploaded_file_anom is None:
                 st.error("Vui lòng upload file hoặc chọn dùng mặc định.")
             else:
+                # --- Xác định đường dẫn file và cờ is_train ---
                 if use_default:
                     excel_path = TRAINING_DATA
+                    is_train_flag = True    # file mặc định = dữ liệu train
                 else:
                     with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file_anom.name)[1]) as tmp:
                         tmp.write(uploaded_file_anom.getvalue())
                         excel_path = tmp.name
+                    is_train_flag = False   # file upload user = dữ liệu mới
 
+                # Kiểm tra tồn tại model
                 if not os.path.exists(model_path_input):
                     st.error(f"Không tìm thấy model tại '{model_path_input}'.")
                 else:
                     with st.spinner("Đang chạy detect_outliers ..."):
                         try:
-                            df_all, anomaly = detect_outliers(excel_path, model_path_input)
+                            # --- LOAD DỮ LIỆU ---
+                            df_in = preprocess_motobike_data(excel_path)
 
+                            # --- CHẠY detect_outliers ---
+                            df_all, anomaly = detect_outliers(df_in, model_path_input, input_is_df=True, helpers=helpers, is_train=is_train_flag)
+
+                            # --- HIỂN THỊ KẾT QUẢ ---
                             st.success(f"Hoàn tất. Tổng {len(df_all):,} bản ghi, phát hiện {len(anomaly):,} bất thường ({100*len(anomaly)/len(df_all):.2f}%).")
 
                             if len(anomaly) > 0:
                                 st.subheader("Một vài bản ghi bất thường:")
-                                st.dataframe(anomaly.head(50))
+                                st.dataframe(anomaly.head(10))
                                 csv = anomaly.to_csv(index=False).encode('utf-8')
                                 st.download_button("Tải outliers_detected.csv", data=csv, file_name="outliers_detected.csv", mime='text/csv')
                             else:
@@ -734,6 +801,7 @@ else:
 
                         except Exception as e:
                             st.exception(e)
+
 
 
 
