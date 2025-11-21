@@ -57,9 +57,13 @@ if_model.fit(Xu)
 pickle.dump(if_model, open("if_model.pkl", "wb"))
 
 # --- Train LOF ---
-lof_model = LocalOutlierFactor(n_neighbors=20, contamination=0.2)
-# LOF không có predict() sau fit, nên lưu bản fit_predict đặc biệt → dùng decision_function
-# Nhưng để đơn giản, ta chỉ lưu mô hình (scikit-learn cho phép)
+# lof_model = LocalOutlierFactor(n_neighbors=20, contamination=0.2)
+# # LOF không có predict() sau fit, nên lưu bản fit_predict đặc biệt → dùng decision_function
+# # Nhưng để đơn giản, ta chỉ lưu mô hình (scikit-learn cho phép)
+# pickle.dump(lof_model, open("lof_model.pkl", "wb"))
+
+lof_model = LocalOutlierFactor(n_neighbors=20,contamination=0.2, novelty=True)
+lof_model.fit(Xu)  # X_train là dữ liệu training
 pickle.dump(lof_model, open("lof_model.pkl", "wb"))
 
 # --- Train KMeans ---
