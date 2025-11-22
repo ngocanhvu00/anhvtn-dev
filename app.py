@@ -112,7 +112,7 @@ helpers = build_training_helpers(TRAINING_DATA)
 model = load_model(MODEL_PATH)
 
 st.title("Motorbike Price Prediction & Anomaly Detection")
-st.markdown("Ứng dụng cho phép: 1) Dự đoán giá xe máy (nhập tay hoặc upload file) 2) Phát hiện xe bất thường (upload file)")
+# st.markdown("Ứng dụng cho phép: 1) Dự đoán giá xe máy (nhập tay hoặc upload file) 2) Phát hiện xe bất thường (upload file)")
 st.image("xe_may_cu.jpg", caption="Xe máy cũ")
 
 # page = st.sidebar.selectbox("Chọn chức năng", ["Dự đoán giá", "Phát hiện bất thường"])
@@ -531,156 +531,275 @@ elif page == "Dự đoán giá":
 else:
     st.header("Phát hiện xe bất thường")
 
-    mode_anom = st.radio(
-        "Chọn cách kiểm tra:",
-        ["Nhập tay 1 xe", "Upload file / dùng file mặc định"],
-        horizontal=True
-    )
+    # Tạo 2 TAB
+    tab_user, tab_admin = st.tabs(["👤 User kiểm tra xe", "🛠 Admin kiểm tra dữ liệu"])
 
-    # Hàm kiểm tra chung
-    def run_detect(df_in, model_path, is_train_flag):
-        df_all, anomaly = detect_outliers(df_in, model_path, input_is_df=True, helpers=helpers, is_train=is_train_flag)
-        return df_all, anomaly
+    # ======================================
+    # 1) TAB USER
+    # ======================================
+    with tab_user:
 
+        # st.subheader("Nhập tay 1 xe để kiểm tra")
 
-    # ============================================================
-    # MODE 1: NHẬP TAY 1 XE
-    # ============================================================
-    if mode_anom == "Nhập tay 1 xe":
+        # Hàm lưu request user vào file Excel
+        def save_user_request(df_input):
+            save_path = "user_submissions.xlsx"
+            if os.path.exists(save_path):
+                old = pd.read_excel(save_path)
+                new = pd.concat([old, df_input], ignore_index=True)
+            else:
+                new = df_input.copy()
 
-        st.subheader("Nhập thông tin xe cần kiểm tra")
+            new.to_excel(save_path, index=False)
 
+        # ============================
+        # 1.1 Nhập tay
+        # ============================
+        st.subheader("Nhập thông tin xe cần rao bán")
         col1, col2 = st.columns(2)
 
         with col1:
-            brand = st.selectbox("Thương hiệu (brand)", options=brand_list)
-            model_name = st.selectbox("Dòng xe (model)", options=model_list)
-            bike_type = st.selectbox("Loại xe (bike_type)", options=bike_type_list)
-            origin = st.selectbox("Xuất xứ (origin)", options=origin_list)
-            engine_capacity = st.selectbox("Dung tích (engine_capacity)", options=engine_capacity_list)
+            brand = st.selectbox("Thương hiệu", brand_list)
+            model_name = st.selectbox("Dòng xe", model_list)
+            bike_type = st.selectbox("Loại xe", bike_type_list)
+            origin = st.selectbox("Xuất xứ", origin_list)
+            engine_capacity = st.selectbox("Dung tích", engine_capacity_list)
+
         with col2:
-            registration_year = st.number_input("Năm đăng ký", min_value=1980, max_value=2025, value=2019)
-            mileage_km = st.number_input("Số km đã đi", min_value=0, value=10000)
-            min_price = st.number_input("Khoảng giá min (VND)", min_value=0, value=0)
-            max_price = st.number_input("Khoảng giá max (VND)", min_value=0, value=0)
-            price = st.number_input("Giá niêm yết", min_value=0, value=20000000)
+            registration_year = st.number_input("Năm đăng ký", 1980, 2025, 2019)
+            mileage_km = st.number_input("Số km đã đi", 0, value=10000)
+            min_price = st.number_input("Khoảng giá min", 0)
+            max_price = st.number_input("Khoảng giá max", 0)
+            price = st.number_input("Giá niêm yết", 0, value=20000000)
+        
+        # Thêm ngày giờ đăng tin
+        col_d, col_t = st.columns(2)
 
-        model_path_input = st.text_input("Đường dẫn model (.pkl)", value=MODEL_PATH)
+        with col_d:
+            post_date = st.date_input("Ngày đăng tin", value=pd.Timestamp.now().date())
 
-        if st.button("Kiểm tra xe này có bất thường không?"):
-            with st.spinner("Đang kiểm tra..."):
+        with col_t:
+            post_time = st.time_input("Giờ đăng tin", value=pd.Timestamp.now().time())
 
-                # Tạo 1 DataFrame duy nhất
-                df_in = pd.DataFrame([{
-                    "brand": brand,
-                    "model": model_name,
-                    "bike_type": bike_type,
-                    "origin": origin,
-                    "engine_capacity": engine_capacity,
-                    "registration_year": registration_year,
-                    "mileage_km": mileage_km,
-                    "min_price" : min_price,
-                    "max_price" : max_price,
-                    "price": price
-                }])
-                # compute age
-                current_year = 2025
-                df_in['age'] = current_year - pd.to_numeric(df_in['registration_year'], errors='coerce')
+        # Gộp thành datetime
+        post_datetime = pd.to_datetime(str(post_date) + " " + str(post_time))
 
-                # apply grouping using helpers if available
-                if helpers is not None:
-                    # brand_grouped
-                    if df_in.at[0, 'brand'] in helpers['rare_brands']:
-                        df_in['brand_grouped'] = 'Hãng khác'
-                    else:
-                        df_in['brand_grouped'] = df_in['brand']
 
-                    # model_grouped
-                    bg = df_in.at[0, 'brand_grouped']
-                    rare_models = helpers['model_group_maps'].get(bg, set())
-                    if df_in.at[0, 'model'] in rare_models:
-                        df_in['model_grouped'] = 'Dòng khác'
-                    else:
-                        df_in['model_grouped'] = df_in['model']
+        # chuẩn bị key cho session_state
+        if "last_df_in" not in st.session_state:
+            st.session_state["last_df_in"] = None
+        if "last_anomaly" not in st.session_state:
+            st.session_state["last_anomaly"] = None
+        if "checked" not in st.session_state:
+            st.session_state["checked"] = False
 
-                    # segment
-                    df_in['segment'] = df_in['brand_grouped'] + '_' + df_in['model_grouped']
+        if st.button("Kiểm tra"):
+            df_in = pd.DataFrame([{
+                "brand": brand,
+                "model": model_name,
+                "bike_type": bike_type,
+                "origin": origin,
+                "engine_capacity": engine_capacity,
+                "registration_year": registration_year,
+                "mileage_km": mileage_km,
+                "min_price": min_price,
+                "max_price": max_price,
+                "price": price
+            }])
 
-                    # brand_meanprice
-                    df_in['brand_meanprice'] = helpers['brand_mean_map'].get(df_in.at[0,'brand'], np.nan)
+            df_in["age"] = 2025 - df_in["registration_year"]
+            df_in["post_time"] = post_datetime
+
+            # Mapping using helpers
+            if helpers is not None:
+                if df_in.at[0, 'brand'] in helpers['rare_brands']:
+                    df_in['brand_grouped'] = 'Hãng khác'
                 else:
-                    # fallback simple
                     df_in['brand_grouped'] = df_in['brand']
+
+                rare_models = helpers['model_group_maps'].get(df_in.at[0, 'brand_grouped'], set())
+                if df_in.at[0, 'model'] in rare_models:
+                    df_in['model_grouped'] = 'Dòng khác'
+                else:
                     df_in['model_grouped'] = df_in['model']
-                    df_in['segment'] = df_in['brand'] + '_' + df_in['model']
-                    df_in['brand_meanprice'] = np.nan
-                    st.warning("Không tìm thấy data huấn luyện (data_motobikes.xlsx). App sẽ dùng fallback — brand_meanprice có thể là NaN, dự đoán có thể không chính xác.")
 
-                try:
-                    # Gọi detect_outliers cho 1 xe duy nhất
-                    # df_all, anomaly = detect_outliers(df_in, model_path_input, input_is_df=True, helpers=helpers)
-                    df_all, anomaly = run_detect(df_in, model_path_input, is_train_flag=False)
-
-                    if len(anomaly) > 0:
-                        st.error("🚨 Xe này **BẤT THƯỜNG** theo mô hình phát hiện outlier.")
-                        st.dataframe(anomaly)
-                    else:
-                        st.success("Xe này **KHÔNG bất thường** theo mô hình.")
-
-                except Exception as e:
-                    st.exception(e)
-
-    # ============================================================ 
-    # MODE 2: UPLOAD FILE HOẶC DÙNG FILE DEFAULT
-    # ============================================================
-    else:
-        st.subheader("Upload file hoặc dùng file mặc định")
-
-        uploaded_file_anom = st.file_uploader("Chọn file (xlsx/csv)", type=['xlsx','csv'], key='anom')
-        use_default = st.checkbox("Dùng file mặc định data_motobikes.xlsx", value=False)
-
-        model_path_input = st.text_input("Đường dẫn model (.pkl)", value=MODEL_PATH)
-
-        if st.button("Chạy phát hiện bất thường (nhiều xe)"):
-            if not use_default and uploaded_file_anom is None:
-                st.error("Vui lòng upload file hoặc chọn dùng mặc định.")
+                df_in["segment"] = df_in["brand_grouped"] + "_" + df_in["model_grouped"]
+                df_in["brand_meanprice"] = helpers["brand_mean_map"].get(df_in.at[0,"brand"], np.nan)
             else:
-                # --- Xác định đường dẫn file và cờ is_train ---
-                if use_default:
-                    excel_path = TRAINING_DATA
-                    is_train_flag = True    # file mặc định = dữ liệu train
+                df_in["brand_grouped"] = df_in["brand"]
+                df_in["model_grouped"] = df_in["model"]
+                df_in["segment"] = df_in["brand"] + "_" + df_in["model"]
+                df_in["brand_meanprice"] = np.nan
+
+            try:
+                df_all, anomaly = detect_outliers(df_in, model_path=MODEL_PATH, input_is_df=True, helpers=helpers)
+
+                # lưu tạm vào session để dùng sau khi user xác nhận
+                st.session_state["last_df_in"] = df_in
+                st.session_state["last_anomaly"] = anomaly
+                st.session_state["checked"] = True
+
+            except Exception as e:
+                st.exception(e)
+
+        # Nếu đã có kết quả kiểm tra trong session_state thì hiển thị
+        if st.session_state.get("checked", False):
+            df_in = st.session_state["last_df_in"]
+            anomaly = st.session_state["last_anomaly"]
+
+            if anomaly is None:
+                st.info("Không có kết quả kiểm tra.")
+            else:
+                if len(anomaly) > 0:
+                    # xác định reason dựa trên score như yêu cầu (model/business)
+                    # note: detect_outliers đã tính score_model_based, score_business_based
+                    r = []
+                    if anomaly["score_model_based"].iloc[0] >= 50:
+                        r.append("Mô hình cảnh báo phát hiện")
+                    if anomaly["flag_mileage_low"].iloc[0] == 1:
+                        r.append("Logic nghiệp vụ (Số km đã đi thấp bất thường)")
+                    if anomaly["flag_mileage_high"].iloc[0] == 1:
+                        r.append("Logic nghiệp vụ (Số km đã đi cao bất thường)")
+                    reason_text = " + ".join(r) if r else "Không xác định"
+
+                    st.error(f"🚨 Xe này BẤT THƯỜNG — do {reason_text}")
+                    # st.dataframe(anomaly)
+
+                    # hỏi user: có muốn đăng không? + nút xác nhận lưu
+                    choice = st.radio("Xe này bất thường, bạn vẫn muốn đăng tin không?", ["Không", "Có"], horizontal=True, key="confirm_post_radio")
+
+                    if st.button("Xác nhận đăng tin"):
+                        if choice == "Có":
+                            # chuẩn bị bản lưu: loại bỏ cột nội bộ trước khi lưu
+                            # df_save = df_in.copy()
+                            # cols_to_drop = ["brand_grouped", "model_grouped", "segment", "brand_meanprice"]
+                            # df_save = df_save.drop(columns=[c for c in cols_to_drop if c in df_save.columns])
+                            save_user_request(df_in) # save đủ thông tin
+                            st.success("Đã đăng tin.")
+                            # reset flags
+                            st.session_state["last_df_in"] = None
+                            st.session_state["last_anomaly"] = None
+                            st.session_state["checked"] = False
+                        else:
+                            st.info("Bạn đã chọn không đăng tin này.")
+                            # reset session
+                            st.session_state["last_df_in"] = None
+                            st.session_state["last_anomaly"] = None
+                            st.session_state["checked"] = False
+
                 else:
-                    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file_anom.name)[1]) as tmp:
-                        tmp.write(uploaded_file_anom.getvalue())
+                    st.success("Xe này KHÔNG bất thường")
+                    # Show nút lưu nếu user muốn (optional) — tự lưu hoặc cho user bấm
+                    if st.button("Đăng tin"):
+                        # df_save = df_in.copy()
+                        # cols_to_drop = ["brand_grouped", "model_grouped", "segment", "brand_meanprice"]
+                        # df_save = df_save.drop(columns=[c for c in cols_to_drop if c in df_save.columns])
+                        save_user_request(df_in)
+                        st.success("Đã đăng tin.")
+                        st.session_state["last_df_in"] = None
+                        st.session_state["last_anomaly"] = None
+                        st.session_state["checked"] = False
+
+
+
+
+    # ======================================
+    # 2) TAB ADMIN
+    # ======================================
+    with tab_admin:
+
+        st.subheader("Chế độ kiểm tra dành cho Admin")
+
+        mode_admin = st.radio(
+            "Chọn cách kiểm tra:",
+            ["Dữ liệu user nhập hôm nay", "Upload file"],
+            horizontal=True
+        )
+
+        save_path = "user_submissions.xlsx"
+
+        # ============================================================
+        # MODE 1: KIỂM TRA DỮ LIỆU USER NHẬP HÔM NAY
+        # ============================================================
+        if mode_admin == "Dữ liệu user nhập hôm nay":
+
+            st.subheader("Danh sách tin user đã gửi")
+
+            if os.path.exists(save_path):
+                df_user = pd.read_excel(save_path)
+
+                cols_to_hide = ["brand_grouped", "model_grouped", "segment", "brand_meanprice"]
+                df_user_display = df_user.drop(columns=[c for c in cols_to_hide if c in df_user.columns])
+
+                st.dataframe(df_user_display)
+
+                if st.button("Chạy kiểm tra bất thường (User submissions)"):
+                    try:
+                        df_all, anomaly = detect_outliers(
+                            df_user,
+                            model_path=MODEL_PATH,
+                            input_is_df=True,
+                            helpers=helpers
+                        )
+
+                        st.success(f"Phát hiện {len(anomaly)} bất thường")
+                        anomaly_print = anomaly.copy()
+                        cols_to_drop = ['brand_grouped', 'model_grouped', 'segment', 'brand_meanprice','price_hat','resid','resid_median','resid_std','resid_z','flag_resid','p10','p90'
+]
+                        anomaly_print = anomaly_print.drop(columns=[c for c in cols_to_drop if c in anomaly_print.columns])
+                        st.dataframe(anomaly_print.head(20))
+
+                    except Exception as e:
+                        st.exception(e)
+
+            else:
+                st.info("⚠ Chưa có user nào gửi dữ liệu.")
+
+
+        # ============================================================
+        # MODE 2: ADMIN UPLOAD FILE KIỂM TRA
+        # ============================================================
+        else:
+            st.subheader("Upload file để Admin kiểm tra")
+
+            file_admin = st.file_uploader(
+                "Chọn file dữ liệu cần kiểm tra (xlsx/csv)",
+                type=["xlsx", "csv"],
+                key="admin_upload_file"
+            )
+
+            if st.button("Chạy kiểm tra file Admin"):
+                if file_admin is None:
+                    st.error("Vui lòng upload file trước!")
+                else:
+                    with tempfile.NamedTemporaryFile(
+                        delete=False,
+                        suffix=os.path.splitext(file_admin.name)[1]
+                    ) as tmp:
+                        tmp.write(file_admin.getvalue())
                         excel_path = tmp.name
-                    is_train_flag = False   # file upload user = dữ liệu mới
 
-                # Kiểm tra tồn tại model
-                if not os.path.exists(model_path_input):
-                    st.error(f"Không tìm thấy model tại '{model_path_input}'.")
-                else:
-                    with st.spinner("Đang chạy detect_outliers ..."):
-                        try:
-                            # --- LOAD DỮ LIỆU ---
-                            df_in = preprocess_motobike_data(excel_path)
+                    try:
+                        df_in = preprocess_motobike_data(excel_path)
+                        df_all, anomaly = detect_outliers(
+                            df_in, 
+                            model_path=MODEL_PATH, 
+                            input_is_df=True, 
+                            helpers=helpers
+                        )
 
-                            # --- CHẠY detect_outliers ---
-                            df_all, anomaly = detect_outliers(df_in, model_path_input, input_is_df=True, helpers=helpers, is_train=is_train_flag)
+                        st.success(
+                            f"Hoàn tất kiểm tra. Tổng {len(df_in)} bản ghi — phát hiện {len(anomaly)} bất thường."
+                        )
+                        # st.dataframe(anomaly.head(20))
+                        anomaly_print = anomaly.copy()
+                        cols_to_drop = ['brand_grouped', 'model_grouped', 'segment', 'brand_meanprice','price_hat','resid','resid_median','resid_std','resid_z','flag_resid','p10','p90'
+]
+                        anomaly_print = anomaly_print.drop(columns=[c for c in cols_to_drop if c in anomaly_print.columns])
+                        st.dataframe(anomaly_print.head(20))
 
-                            # --- HIỂN THỊ KẾT QUẢ ---
-                            st.success(f"Hoàn tất. Tổng {len(df_all):,} bản ghi, phát hiện {len(anomaly):,} bất thường ({100*len(anomaly)/len(df_all):.2f}%).")
-
-                            if len(anomaly) > 0:
-                                st.subheader("Một vài bản ghi bất thường:")
-                                st.dataframe(anomaly.head(10))
-                                csv = anomaly.to_csv(index=False).encode('utf-8')
-                                st.download_button("Tải outliers_detected.csv", data=csv, file_name="outliers_detected.csv", mime='text/csv')
-                            else:
-                                st.info("Không tìm thấy bản ghi bất thường.")
-
-                        except Exception as e:
-                            st.exception(e)
-
+                    except Exception as e:
+                        st.exception(e)
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("App demo")
+st.sidebar.markdown("Ứng dụng cho phép: 1) Dự đoán giá xe máy 2) Phát hiện xe bất thường (nhập tay hoặc upload file)")
