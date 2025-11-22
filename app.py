@@ -804,15 +804,82 @@ else:
                     # xác định reason dựa trên score như yêu cầu (model/business)
                     # note: detect_outliers đã tính score_model_based, score_business_based
                     r = []
-                    if anomaly["score_model_based"].iloc[0] >= 50:
-                        r.append("Mô hình cảnh báo phát hiện")
-                    if anomaly["flag_mileage_low"].iloc[0] == 1:
-                        r.append("Logic nghiệp vụ (Số km đã đi thấp bất thường)")
-                    if anomaly["flag_mileage_high"].iloc[0] == 1:
-                        r.append("Logic nghiệp vụ (Số km đã đi cao bất thường)")
-                    reason_text = " + ".join(r) if r else "Không xác định"
 
-                    st.error(f"🚨 Xe này BẤT THƯỜNG — do {reason_text}")
+                    price = anomaly["price"].iloc[0]
+                    resid = anomaly["resid"].iloc[0]
+                    p10 = anomaly["p10"].iloc[0]
+                    p90 = anomaly["p90"].iloc[0]
+
+                    # Tính giá mô hình dự đoán
+                    predicted_price = price - resid
+                    if predicted_price > 0:
+                        diff_pct = resid / predicted_price * 100
+                    else:
+                        diff_pct = None
+
+
+                    # ===================================================
+                    # 1) LÝ DO DỰA TRÊN ĐIỂM MÔ HÌNH (score_model_based)
+                    # ===================================================
+                    # if anomaly["score_model_based"].iloc[0] >= 50:
+                    #     r.append("Mô hình đánh giá xe có dấu hiệu bất thường")
+
+                    # 1.1) Residual Z-score – giá lệch xa mô hình dự đoán
+                    if anomaly["flag_resid"].iloc[0] == 1:
+                        if diff_pct is not None:
+                            if resid > 0:
+                                r.append(
+                                    f"Giá đang CAO hơn mức mô hình dự đoán khoảng {diff_pct:.1f}%"
+                                )
+                            else:
+                                r.append(
+                                    f"Giá đang THẤP hơn mức mô hình dự đoán khoảng {abs(diff_pct):.1f}%"
+                                )
+                        else:
+                            r.append("Giá lệch quá xa mô hình dự đoán")
+
+                    # 1.2) Giá nằm ngoài khoảng Min–Max
+                    if anomaly["flag_minmax"].iloc[0] == 1:
+                        r.append("Giá nằm ngoài khoảng giá hợp lý (Min–Max)")
+
+                    # 1.3) Giá nằm ngoài phân vị P10–P90
+                    if anomaly["flag_p10p90"].iloc[0] == 1:
+                        if price < p10:
+                            r.append("Giá thuộc nhóm 10% THẤP NHẤT của phân khúc (rẻ bất thường)")
+                        elif price > p90:
+                            r.append("Giá thuộc nhóm 10% CAO NHẤT của phân khúc (cao bất thường)")
+                        else:
+                            r.append("Giá nằm ngoài khoảng P10–P90 của phân khúc")
+
+                    # 1.4) Bất thường từ mô hình không giám sát (Isolation Forest, LOF, KMeans)
+                    if anomaly["flag_unsup"].iloc[0] == 1:
+                        r.append("Mô hình học máy không giám sát phát hiện điểm bất thường")
+
+
+                    # ===================================================
+                    # 2) LÝ DO THEO LOGIC NGHIỆP VỤ (score_business_based)
+                    # ===================================================
+                    if anomaly["flag_mileage_low"].iloc[0] == 1:
+                        r.append("Số km đã đi THẤP bất thường so với tuổi xe")
+
+                    if anomaly["flag_mileage_high"].iloc[0] == 1:
+                        r.append("Số km đã đi CAO bất thường so với tuổi xe")
+
+
+                    # ===================================================
+                    # 3) XỬ LÝ KẾT QUẢ CUỐI
+                    # ===================================================
+                    # reason_text = " + ".join(r) if r else "Không xác định nguyên nhân"
+
+                    st.error("🚨 Hệ thống phát hiện bài đăng có dấu hiệu BẤT THƯỜNG")
+
+                    if r:
+                        st.markdown(
+                            "**Nguyên nhân chi tiết:**\n"
+                            + "\n".join([f"- {reason}" for reason in r])
+                        )
+                    else:
+                        st.markdown("Không xác định được nguyên nhân.")
                     # st.dataframe(anomaly)
 
                     # hỏi user: có muốn đăng không? + nút xác nhận lưu
@@ -838,7 +905,7 @@ else:
                             st.session_state["checked"] = False
 
                 else:
-                    st.success("Xe này KHÔNG bất thường")
+                    st.success("Thông tin đăng hợp lệ.")
                     # Show nút lưu nếu user muốn (optional) — tự lưu hoặc cho user bấm
                     if st.button("Đăng tin"):
                         # df_save = df_in.copy()
