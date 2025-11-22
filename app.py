@@ -153,6 +153,8 @@ st.title("Hệ thống Dự báo Giá Xe Máy và Nhận diện Giá Bất Thư�
 # st.image("xe_may_cu.jpg", caption="Xe máy cũ")
 st.image("xe_may_cu.jpg", caption="Xe máy cũ", width=1000)
 
+st.sidebar.markdown("**Hệ thống Dự báo Giá Xe Máy và Nhận diện Giá Bất Thường**")
+
 # page = st.sidebar.selectbox("Chọn chức năng", ["Dự đoán giá", "Phát hiện bất thường"])
 menu = ["Giới thiệu", "Bài toán nghiệp vụ", "Đánh giá mô hình và Báo cáo", "Dự đoán giá", "Phát hiện xe bất thường"]
 page = st.sidebar.selectbox('Menu', menu)
@@ -994,6 +996,8 @@ else:
 
                     except Exception as e:
                         st.exception(e)
+
+
 
 st.sidebar.markdown("---")
 # st.sidebar.markdown("""
