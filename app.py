@@ -7,6 +7,8 @@ import os
 import tempfile
 import seaborn as sns
 import matplotlib.pyplot as plt
+import pytz
+from datetime import datetime
 from streamlit.components.v1 import html
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
@@ -14,6 +16,41 @@ from function_preprocessing_motorbike import preprocess_motobike_data
 from build_model_price_anomaly_detection import detect_outliers
 
 st.set_page_config(page_title="Motorbike Price & Anomaly App", layout="wide")
+
+# Bắt đầu đoạn code cần thêm để áp dụng justify (căn đều)
+html_code = """
+<style>
+/* Chọn tất cả các thành phần chứa văn bản chính của Streamlit
+   (như st.markdown, st.write, st.header, st.subheader, st.text, v.v.)
+   và áp dụng căn đều (text-align: justify;) */
+.stMarkdown, .stText, .stHtml, .stHeader, .stSubheader, .stTitle, .stPageLink, .css-selector-cho-cac-phan-tu-khac {
+    text-align: justify;
+    text-justify: inter-word; /* Dành cho các trình duyệt IE/Edge */
+}
+/* Một số component như st.write/st.markdown sẽ được bọc trong class 'stMarkdown'
+   và class này có thể được bọc trong các div khác. Ta cần selector mạnh hơn. */
+div.stMarkdown p, div.stMarkdown, div[data-testid="stText"] {
+    text-align: justify;
+    text-justify: inter-word;
+}
+</style>
+"""
+st.components.v1.html(html_code, height=0)
+
+# 1. BẮT ĐẦU: CSS ĐỂ LOẠI BỎ GIỚI HẠN CHIỀU RỘNG TỐI ĐA CỦA STREAMLIT
+# Đặt max-width rất lớn (ví dụ: 2000px) để cho phép hình ảnh hiển thị rộng hơn
+html_code_width = """
+<style>
+/* Loại bỏ giới hạn max-width của khối nội dung chính */
+.main .block-container {
+    max-width: 2000px !important; 
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+</style>
+"""
+st.components.v1.html(html_code_width, height=0)
+# KẾT THÚC: CSS ĐỂ LOẠI BỎ GIỚI HẠN CHIỀU RỘNG TỐI ĐA
 
 MODEL_PATH = "motobike_price_prediction_model.pkl"
 TRAINING_DATA = "data_motobikes.xlsx"  # optional, used to compute brand_meanprice & grouping to match train
@@ -113,7 +150,8 @@ model = load_model(MODEL_PATH)
 
 st.title("Motorbike Price Prediction & Anomaly Detection")
 # st.markdown("Ứng dụng cho phép: 1) Dự đoán giá xe máy (nhập tay hoặc upload file) 2) Phát hiện xe bất thường (upload file)")
-st.image("xe_may_cu.jpg", caption="Xe máy cũ")
+# st.image("xe_may_cu.jpg", caption="Xe máy cũ")
+st.image("xe_may_cu.jpg", caption="Xe máy cũ", width=1000)
 
 # page = st.sidebar.selectbox("Chọn chức năng", ["Dự đoán giá", "Phát hiện bất thường"])
 menu = ["Giới thiệu", "Bài toán nghiệp vụ", "Đánh giá mô hình và Báo cáo", "Dự đoán giá", "Phát hiện xe bất thường"]
@@ -132,7 +170,8 @@ origin_list = sorted(df_ref['origin'].dropna().unique())
 engine_capacity_list = sorted(df_ref['engine_capacity'].dropna().unique())
 
 if page == 'Giới thiệu':
-    st.subheader("[Trang chủ Chợ Tốt](https://www.chotot.com/)")
+
+    st.subheader("[Trang chủ](https://www.chotot.com/)")
     
     st.header('Giới thiệu dự án')
     st.markdown('''Đây là dự án xây dựng hệ thống hỗ trợ **định giá xe máy cũ** và **phát hiện tin đăng bất thường** trên nền tảng *Chợ Tốt* - trong khóa đồ án tốt nghiệp Data Science and Machine Learning 2024 lớp DL07_K308 của nhóm 6. \nThành viên nhóm gồm có:
@@ -235,23 +274,41 @@ elif page == 'Đánh giá mô hình và Báo cáo':
                 """)
     # --- Vẽ biểu đồ ---
 
+    # # Hiển thị 4 biểu đồ dạng lưới 2x2
+    # col1, col2 = st.columns(2)
+    # with col1:
+    #     st.image("brand_grouped_count.png")
+    #     st.image("age_bin_stats.png")
+
+    # with col2:
+    #     st.image("price_bin_stats.png")
+    #     st.image("mileage_bin_stats.png")
+
+    # Đặt chiều rộng cho từng hình ảnh là 500px
+    # Tổng chiều rộng 2 cột sẽ là 1000px
+    image_width = 500
+    
     # Hiển thị 4 biểu đồ dạng lưới 2x2
     col1, col2 = st.columns(2)
     with col1:
-        st.image("brand_grouped_count.png")
-        st.image("age_bin_stats.png")
+        st.image("brand_grouped_count.png", width=image_width) # Thêm width=500
+        st.image("age_bin_stats.png", width=image_width)       # Thêm width=500
 
     with col2:
-        st.image("price_bin_stats.png")
-        st.image("mileage_bin_stats.png")
+        st.image("price_bin_stats.png", width=image_width)     # Thêm width=500
+        st.image("mileage_bin_stats.png", width=image_width)   # Thêm width=500
 
     st.subheader("II. Mô hình dự đoán giá xe máy")
 
     st.markdown("""
-    **Đánh giá mô hình** 
+
+    ##### Lựa chọn thuộc tính           
+    Để xây dựng mô hình dự đoán giá xe máy, chúng tôi đã chọn lọc các thuộc tính đầu vào (input features) có tính chất dự báo cao, bao gồm: **Thương hiệu, Dòng xe, Tuổi xe, Số km đã đi, Loại xe, Dung tích xe, Xuất xứ, Khoảng giá min,** và **Khoảng giá max**.
+                         
+    ##### Đánh giá mô hình
                 
     Chúng tôi thử nghiệm nhiều mô hình machine learning, bao gồm **Random Forest, SVR, Gradient Boosting, Decision Tree** và **Linear Regression**. Trong số đó, **Random Forest** cho kết quả vượt trội nhất, thể hiện rõ qua bảng dưới đây:
-    ### 📊 So sánh hiệu quả các mô hình
+    ##### 📊 So sánh hiệu quả các mô hình
 
     | Mô hình              | R²       | MAE (VNĐ)        | RMSE (VNĐ)       |
     |---------------------|----------|------------------|------------------|
@@ -269,59 +326,77 @@ elif page == 'Đánh giá mô hình và Báo cáo':
     
     st.subheader("III. Mô hình phát hiện xe bất thường")
 
+    # st.markdown("""
+    #     ###### Hệ thống phát hiện bất thường được xây dựng dựa trên **hai nhóm tiêu chí**: **Điểm số từ mô hình học máy** (`score_model_based`) và Điểm số từ logic nghiệp vụ** (`score_business_based`) 
+    #         """)
+    # st.markdown("""
+    #     ###### Hai nhóm tiêu chí này được kết hợp nhằm đảm bảo việc phát hiện bất thường vừa **khách quan theo mô hình**, vừa **phù hợp thực tế kinh doanh**.   
+    #             """)
     st.markdown("""
-        ##### Hệ thống phát hiện bất thường được xây dựng dựa trên **hai nhóm tiêu chí**: **Điểm số từ mô hình học máy** (`score_model_based`) và Điểm số từ logic nghiệp vụ** (`score_business_based`) 
-            """)
-    st.markdown("""
-        ###### Hai nhóm tiêu chí này được kết hợp nhằm đảm bảo việc phát hiện bất thường vừa **khách quan theo mô hình**, vừa **phù hợp thực tế kinh doanh**.   
-                """)
+        ###### Hệ thống phát hiện bất thường được xây dựng dựa trên **hai nhóm tiêu chí**:
 
-    st.markdown("""
-        #### 1. Tiêu chí đánh dấu bất thường theo logic học máy (score_model_based) (4 tiêu chí)
+        * **Điểm số từ mô hình học máy** (`score_model_based`): Đảm bảo việc phát hiện bất thường mang tính **khách quan theo mô hình**.
+        * **Điểm số từ logic nghiệp vụ** (`score_business_based`): Đảm bảo việc phát hiện bất thường **phù hợp thực tế kinh doanh**.
 
-        ##### **1. `flag_resid` – Dựa trên phần dư (Residual Z-score)**
-        - Ngưỡng được đặt là **3**.
-        - Nếu **residual_z > 3** → `flag_resid = 1` (bất thường).  
-        - Nếu không → `flag_resid = 0`.
-
-        ---
-
-        ##### **2. `flag_minmax` – Dựa trên khoảng giá hợp lý**
-        - Nếu **giá niêm yết nằm ngoài khoảng [min_price, max_price]** → `flag_minmax = 1`.  
-        - Nếu không → `flag_minmax = 0`.
-
-        ---
-
-        ##### **3. `flag_p10p90` – Dựa trên phân vị theo phân khúc**
-        - Xác định **phân vị 10% (P10)** và **90% (P90)** cho từng phân khúc xe.
-        - Nếu giá trị nằm **ngoài khoảng P10–P90** → `flag_p10p90 = 1`.  
-        - Nếu không → `flag_p10p90 = 0`.
-
-        ---
-
-        ##### **4. `flag_unsup` – Tổng hợp từ 3 mô hình học máy không giám sát: Isolation Forest, Local Outlier Factor, and KMeans**
-        - Với Kmeans, điểm bất thường là điểm có số điểm trên cụm < 10% tổng thể hoặc nằm trong 5% điểm xa tâm cụm.
-        - Nếu hai trong ba mô hình trên đánh dấu bất thường thì flag_unsup = 1
-
-        ---
-        ##### Điểm logic theo mô hình ***score_model_based*** là tổng của 4 điểm trên, trong đó sẽ được áp dụng trọng số 0.4 cho flag_resid, và 0.2 cho các tiêu chí còn lại.
-                """)
-
-    
-    st.markdown("""
-        ##### 2. Tiêu chí đánh dấu bất thường theo logic nghiệp vụ (score_business_based):
-        - Với tiêu chí này, chúng tôi chọn số liệu "Số km đã đi" để đánh giá. Những xe chạy quá ít hay quá nhiều so với độ tuổi sẽ có vấn đề.
-        - Nếu số km đã đi < 200 * tuổi xe -> số km quá thấp so với tuổi xe -> nghi vấn Tua công-tơ-mét
-        - Nếu số km đã đi > 20000 * tuổi xe -> số km cao bất thường -> có thể xe dùng để khai thác dịch vụ hoặc khai báo không trung thực
+        Hai nhóm tiêu chí này được kết hợp nhằm mang lại kết quả phát hiện bất thường toàn diện và đáng tin cậy.
         """)
+
     st.markdown("""
-        ##### Điểm tổng hợp cuối cùng (final_score) là tổng của 2 điểm theo logic model và theo logic nghiệp vụ trên. Nếu xe nào có tổng điểm **lớn hơn 50** thì sẽ được đánh dấu là bất thường.
+        #### 1. Tiêu chí đánh dấu bất thường theo Logic Học máy (`score_model_based`)
+
+        Hệ thống sử dụng **bốn tiêu chí** chính dựa trên mô hình thống kê và học máy để gán điểm bất thường:
+
+        ---
+
+        ##### 1.1. **`flag_resid` – Dựa trên phần dư (Residual Z-score)**
+        * **Ngưỡng**: Được đặt là **3**.
+        * **Đánh dấu bất thường**: Nếu **Residual Z-score > 3**, `flag_resid = 1`.
+        * **Bình thường**: Nếu không, `flag_resid = 0`.
+
+        ---
+
+        ##### 1.2. **`flag_minmax` – Dựa trên khoảng giá hợp lý**
+        * **Đánh dấu bất thường**: Nếu **giá niêm yết** nằm **ngoài khoảng giá Min-Max** được khai báo, `flag_minmax = 1`.
+        * **Bình thường**: Nếu không, `flag_minmax = 0`.
+
+        ---
+
+        ##### 1.3. **`flag_p10p90` – Dựa trên Phân vị theo Phân khúc**
+        * **Cơ sở**: Xác định **Phân vị 10% (P10)** và **90% (P90)** của giá xe trong từng phân khúc.
+        * **Đánh dấu bất thường**: Nếu giá trị nằm **ngoài khoảng P10–P90**, `flag_p10p90 = 1`.
+        * **Bình thường**: Nếu không, `flag_p10p90 = 0`.
+
+        ---
+
+        ##### 1.4. **`flag_unsup` – Tổng hợp từ Học máy không giám sát**
+        * **Mô hình**: Kết hợp kết quả từ ba mô hình chính: **Isolation Forest, Local Outlier Factor, và KMeans**.
+        * **Tiêu chí KMeans**: Điểm bất thường có số điểm trong cụm nhỏ hơn 10% tổng thể hoặc nằm trong 5% điểm xa tâm cụm nhất.
+        * **Đánh dấu bất thường**: Nếu **hai trong ba** mô hình trên đánh dấu bất thường, `flag_unsup = 1`.
+
+        ---
+
+        ##### 📈 Tính toán `score_model_based`
+        Điểm logic theo mô hình (`score_model_based`) là tổng có trọng số của 4 tiêu chí trên, trong đó **`flag_resid`** có **trọng số 0.4**, và các tiêu chí còn lại có trọng số **0.2**.
+
+        ---
+
+        #### 2. Tiêu chí đánh dấu bất thường theo Logic Nghiệp vụ (`score_business_based`)
+
+        Tiêu chí này tập trung vào sự bất thường của mối quan hệ giữa **Số km đã đi** và **Tuổi xe**:
+
+        * **Nghi vấn Tua công-tơ-mét (Quá thấp)**: Nếu **Số km đã đi < 200 * Tuổi xe**.
+        * **Số km cao bất thường (Khai thác/Khai báo sai)**: Nếu **Số km đã đi > 20000 * Tuổi xe**.
+
+        ---
+
+        #### 3. Tổng hợp và Đánh dấu cuối cùng
+
+        * **Điểm tổng hợp cuối cùng (`final_score`)** là tổng của hai điểm: **`score_model_based`** và **`score_business_based`**.
+        * **Đánh dấu Bất thường**: Xe có tổng điểm **lớn hơn 50** sẽ được đánh dấu là **Bất thường**.
         """)
-    st.markdown("""
-        ##### Ví dụ 10 mẫu xe bất thường được phát hiện:
-        """)
+
+    st.markdown("##### Ví dụ 10 mẫu xe bất thường được phát hiện:")
     df_anomaly = pd.read_csv("outliers_detected_full.csv")
-    # st.subheader("Ví dụ 10 mẫu xe bất thường được phát hiện:")
     st.dataframe(df_anomaly.sort_values('final_score', ascending=False).head(10))
     
 elif page == "Dự đoán giá":
@@ -542,14 +617,38 @@ else:
         # st.subheader("Nhập tay 1 xe để kiểm tra")
 
         # Hàm lưu request user vào file Excel
+        # def save_user_request(df_input):
+        #     save_path = "user_submissions.xlsx"
+        #     if os.path.exists(save_path):
+        #         old = pd.read_excel(save_path)
+        #         new = pd.concat([old, df_input], ignore_index=True)
+        #     else:
+        #         new = df_input.copy()
+
+        #     new.to_excel(save_path, index=False)
+
+        # Hàm lưu request user vào file Excel
         def save_user_request(df_input):
             save_path = "user_submissions.xlsx"
+            
+            # Tạo bản sao để tránh thay đổi DataFrame gốc (df_in)
+            df_save = df_input.copy() 
+
+            # 1. Kiểm tra xem cột 'post_time' có tồn tại không
+            if 'post_time' in df_save.columns:
+                # 2. Nếu cột là timezone-aware (có múi giờ), chuyển nó thành timezone-unaware
+                if df_save['post_time'].dt.tz is not None:
+                    # .dt.tz_localize(None) sẽ loại bỏ thông tin múi giờ (GMT+7)
+                    # Dữ liệu ngày giờ vẫn giữ nguyên giá trị theo giờ địa phương (GMT+7)
+                    df_save['post_time'] = df_save['post_time'].dt.tz_localize(None)
+
             if os.path.exists(save_path):
                 old = pd.read_excel(save_path)
-                new = pd.concat([old, df_input], ignore_index=True)
+                new = pd.concat([old, df_save], ignore_index=True)
             else:
-                new = df_input.copy()
+                new = df_save.copy()
 
+            # Đoạn này sẽ chạy trơn tru vì cột ngày giờ đã là timezone-unaware
             new.to_excel(save_path, index=False)
 
         # ============================
@@ -575,15 +674,31 @@ else:
         # Thêm ngày giờ đăng tin
         col_d, col_t = st.columns(2)
 
+        # with col_d:
+        #     post_date = st.date_input("Ngày đăng tin", value=pd.Timestamp.now().date())
+
+        # with col_t:
+        #     post_time = st.time_input("Giờ đăng tin", value=pd.Timestamp.now().time())
+
+        # # Gộp thành datetime
+        # post_datetime = pd.to_datetime(str(post_date) + " " + str(post_time))
+
         with col_d:
-            post_date = st.date_input("Ngày đăng tin", value=pd.Timestamp.now().date())
+            # Bạn có thể giữ nguyên giá trị mặc định là giờ hiện tại
+            post_date = st.date_input("Ngày đăng tin", value=pd.Timestamp.now(tz=pytz.timezone('Asia/Ho_Chi_Minh')).date())
 
         with col_t:
-            post_time = st.time_input("Giờ đăng tin", value=pd.Timestamp.now().time())
+            post_time = st.time_input("Giờ đăng tin", value=pd.Timestamp.now(tz=pytz.timezone('Asia/Ho_Chi_Minh')).time())
 
-        # Gộp thành datetime
-        post_datetime = pd.to_datetime(str(post_date) + " " + str(post_time))
+        # Gộp thành datetime và gán múi giờ:
+        # 1. Tạo đối tượng datetime thô (naive datetime) từ date và time input
+        naive_datetime = pd.to_datetime(str(post_date) + " " + str(post_time))
 
+        # 2. Định nghĩa múi giờ Asia/Ho_Chi_Minh (GMT+7)
+        vietnam_tz = pytz.timezone('Asia/Ho_Chi_Minh')
+
+        # 3. Gán múi giờ cho đối tượng datetime
+        post_datetime = vietnam_tz.localize(naive_datetime)
 
         # chuẩn bị key cho session_state
         if "last_df_in" not in st.session_state:
@@ -668,7 +783,7 @@ else:
                     # hỏi user: có muốn đăng không? + nút xác nhận lưu
                     choice = st.radio("Xe này bất thường, bạn vẫn muốn đăng tin không?", ["Không", "Có"], horizontal=True, key="confirm_post_radio")
 
-                    if st.button("Xác nhận đăng tin"):
+                    if st.button("Xác nhận"):
                         if choice == "Có":
                             # chuẩn bị bản lưu: loại bỏ cột nội bộ trước khi lưu
                             # df_save = df_in.copy()
@@ -731,7 +846,7 @@ else:
                 cols_to_hide = ["brand_grouped", "model_grouped", "segment", "brand_meanprice"]
                 df_user_display = df_user.drop(columns=[c for c in cols_to_hide if c in df_user.columns])
 
-                st.dataframe(df_user_display)
+                st.dataframe(df_user_display.sort_values(by='post_time', ascending=False))
 
                 if st.button("Chạy kiểm tra bất thường (User submissions)"):
                     try:
@@ -747,7 +862,30 @@ else:
                         cols_to_drop = ['brand_grouped', 'model_grouped', 'segment', 'brand_meanprice','price_hat','resid','resid_median','resid_std','resid_z','flag_resid','p10','p90'
 ]
                         anomaly_print = anomaly_print.drop(columns=[c for c in cols_to_drop if c in anomaly_print.columns])
-                        st.dataframe(anomaly_print.head(20))
+                        st.dataframe(anomaly_print.sort_values(by='post_time', ascending=False).head(20))
+
+                        # === BẮT ĐẦU THÊM NÚT TẢI XUỐNG ===
+                        if len(anomaly) > 0:
+                            # 1. Tạo tên file có ngày giờ
+                            now = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            file_name = f"anomaly_detection_user_{now}.csv"
+                            
+                            # 2. Chuyển DataFrame sang CSV
+                            # Loại bỏ múi giờ khỏi cột 'post_time' trước khi tải xuống nếu cần (đảm bảo không lỗi)
+                            df_output = anomaly_print.copy()
+                            if 'post_time' in df_output.columns and df_output['post_time'].dt.tz is not None:
+                                df_output['post_time'] = df_output['post_time'].dt.tz_localize(None)
+
+                            csv = df_output.to_csv(index=False).encode('utf-8')
+                            
+                            # 3. Tạo nút tải xuống
+                            st.download_button(
+                                label="Tải kết quả bất thường (CSV)",
+                                data=csv,
+                                file_name=file_name,
+                                mime='text/csv'
+                            )
+                        # === KẾT THÚC THÊM NÚT TẢI XUỐNG ===
 
                     except Exception as e:
                         st.exception(e)
@@ -797,6 +935,29 @@ else:
 ]
                         anomaly_print = anomaly_print.drop(columns=[c for c in cols_to_drop if c in anomaly_print.columns])
                         st.dataframe(anomaly_print.head(20))
+
+                        # === BẮT ĐẦU THÊM NÚT TẢI XUỐNG ===
+                        if len(anomaly) > 0:
+                            # 1. Tạo tên file có ngày giờ
+                            now = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            file_name = f"anomaly_detection_admin_{now}.csv"
+                            
+                            # 2. Chuyển DataFrame sang CSV
+                            df_output = anomaly_print.copy()
+                            # Nếu cột post_time có, hãy loại bỏ múi giờ (để tránh lỗi)
+                            if 'post_time' in df_output.columns and df_output['post_time'].dt.tz is not None:
+                                df_output['post_time'] = df_output['post_time'].dt.tz_localize(None)
+
+                            csv = df_output.to_csv(index=False).encode('utf-8')
+                            
+                            # 3. Tạo nút tải xuống
+                            st.download_button(
+                                label="Tải kết quả bất thường (CSV)",
+                                data=csv,
+                                file_name=file_name,
+                                mime='text/csv'
+                            )
+                        # === KẾT THÚC THÊM NÚT TẢI XUỐNG ===
 
                     except Exception as e:
                         st.exception(e)
