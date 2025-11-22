@@ -148,7 +148,7 @@ def build_training_helpers(path=TRAINING_DATA):
 helpers = build_training_helpers(TRAINING_DATA)
 model = load_model(MODEL_PATH)
 
-st.title("Motorbike Price Prediction & Anomaly Detection")
+st.title("Hệ thống Dự báo Giá Xe Máy và Nhận diện Giá Bất Thường")
 # st.markdown("Ứng dụng cho phép: 1) Dự đoán giá xe máy (nhập tay hoặc upload file) 2) Phát hiện xe bất thường (upload file)")
 # st.image("xe_may_cu.jpg", caption="Xe máy cũ")
 st.image("xe_may_cu.jpg", caption="Xe máy cũ", width=1000)
@@ -397,8 +397,40 @@ elif page == 'Đánh giá mô hình và Báo cáo':
         """)
 
     st.markdown("##### Ví dụ 10 mẫu xe bất thường được phát hiện:")
+    rename_vn = {
+    "price": "gia",
+    "min_price": "gia_min",
+    "max_price": "gia_max",
+    "brand": "thuong_hieu",
+    "model": "dong_xe",
+    "registration_year": "nam_dang_ky",
+    "mileage_km": "so_km_da_di",
+    "condition": "tinh_trang",
+    "bike_type": "loai_xe",
+    "engine_capacity": "dung_tich",
+    "origin": "xuat_xu",
+    "age": "tuoi_xe",
+    "score_model_based": "diem_mo_hinh",
+    "score_business_based": "diem_nghiep_vu",
+    "final_score": "tong_diem",
+    "is_outlier": "la_bat_thuong",
+    }
+
+    cols_user = [
+    "price", "min_price", "max_price",
+    "brand", "model", "registration_year", "mileage_km",
+    "condition", "bike_type", "engine_capacity", "origin", "age",
+    
+    # Bổ sung
+    "score_model_based",
+    "score_business_based",
+    "final_score",
+    "is_outlier"
+]
+    
     df_anomaly = pd.read_csv("outliers_detected_full.csv")
-    st.dataframe(df_anomaly.sort_values('final_score', ascending=False).head(10))
+    df_anomaly = df_anomaly[cols_user].rename(columns=rename_vn)
+    st.dataframe(df_anomaly.sort_values('tong_diem', ascending=False).head(10))
     
 elif page == "Dự đoán giá":
 
@@ -964,4 +996,9 @@ else:
                         st.exception(e)
 
 st.sidebar.markdown("---")
+# st.sidebar.markdown("""
+# ### Thành viên nhóm 6:
+# 1. Vũ Thị Ngọc Anh
+# 2. Nguyễn Phạm Quỳnh Anh
+# """)
 st.sidebar.markdown("Ứng dụng cho phép: 1) Dự đoán giá xe máy 2) Phát hiện xe bất thường (nhập tay hoặc upload file)")
