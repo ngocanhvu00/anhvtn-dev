@@ -229,9 +229,10 @@ elif page == 'Bài toán nghiệp vụ':
 
     """)
 
-    st.header("Thu thập dữ liệu")
+    # st.header("###Thu thập dữ liệu")
 
-    st.markdown("""        
+    st.markdown("""  
+    ### Thu thập dữ liệu    
     Bộ dữ liệu gồm **7.208 tin đăng** với **18 thuộc tính** (thương hiệu, dòng xe, số km, năm đăng ký, giá niêm yết, mô tả…) được thu thập từ nền tảng **Chợ Tốt** (trước ngày 01/07/2025).  
 
     Bộ dữ liệu bao gồm các thông tin sau:
